@@ -10,8 +10,35 @@ wezterm.on("update-right-status", function(window, pane)
   window:set_right_status(name or "")
 end)
 
+-- WSL のディストリを 1 つ選ぶ（docker-desktop は除く・先頭＝wsl -l の並び順）。
+-- WSL が無い PC では nil になり、Ctrl+Shift+U は何もしない
+local function wsl_domain()
+  if not wezterm.target_triple:find("windows") then
+    return nil
+  end
+  for _, dom in ipairs(wezterm.default_wsl_domains()) do
+    if not dom.name:find("docker%-desktop") then
+      return dom.name
+    end
+  end
+  return nil
+end
+local wsl = wsl_domain()
+
 return {
   keys = {
+    -- WSL を新しいタブで開く
+    {
+      key = "u",
+      mods = "SHIFT|CTRL",
+      action = wsl and act.SpawnCommandInNewTab({ domain = { DomainName = wsl } }) or act.Nop,
+    },
+    -- ランチャー（シェルと WSL の一覧から選んで開く）
+    {
+      key = "l",
+      mods = "SHIFT|CTRL",
+      action = act.ShowLauncherArgs({ flags = "LAUNCH_MENU_ITEMS|DOMAINS", title = "Launch" }),
+    },
     {
       -- workspaceの切り替え
       key = "w",

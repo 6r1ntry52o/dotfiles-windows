@@ -30,6 +30,7 @@ wezterm/keybinds.lua   キーバインド
 ```
 
 - 既定シェル: PowerShell 7（無ければ Windows PowerShell 5.1 に落ちる）。ランチャーに 5.1・Git Bash・WSL も出る
+- WSL: ディストリは自動検出（`docker-desktop` 以外の先頭を `Ctrl+Shift+U` に割り当て）。WSL のタブ内で分割・新規タブをすると同じ WSL で開く。WSL 自体の導入は `wsl --install`（このリポでは入れない）
 - フォント: HackGen Console（https://github.com/yuru7/HackGen ・手動で入れる。未導入の PC では同梱の JetBrains Mono に落ちる）
 - タイトルバーなし: 終了は `Alt+F4`、移動はタブバーの空き部分をドラッグ
 
@@ -40,6 +41,8 @@ wezterm/keybinds.lua   キーバインド
 | キー | 動作 |
 |---|---|
 | `Ctrl+Shift+T` / `Ctrl+Shift+W` | タブを開く / 閉じる |
+| `Ctrl+Shift+U` | WSL を新しいタブで開く（Linux のホームで始まる） |
+| `Ctrl+Shift+L` | ランチャー（PowerShell・Git Bash・WSL から選んで開く） |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | 次 / 前のタブ |
 | `Alt+1`〜`8` / `Alt+9` | N 番目 / 最後のタブ |
 | `Leader {` / `Leader }` | タブを左 / 右へ移動 |

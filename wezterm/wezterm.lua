@@ -38,8 +38,15 @@ if wezterm.target_triple:find("windows") then
   if exists(git_bash) then
     table.insert(menu, { label = "Git Bash", args = { git_bash, "-l", "-i" } })
   end
-  -- WSL は WezTerm が自動でランチャーに載せる
   config.launch_menu = menu
+
+  -- WSL: ディストリは WezTerm が自動検出する（ドメイン名＝"WSL:<ディストリ名>"）。
+  -- 既定だと Windows 側のフォルダで始まるので、Linux のホームで開くようにする
+  local wsl_domains = wezterm.default_wsl_domains()
+  for _, dom in ipairs(wsl_domains) do
+    dom.default_cwd = "~"
+  end
+  config.wsl_domains = wsl_domains
 end
 
 ----------------------------------------------------
