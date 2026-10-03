@@ -30,7 +30,7 @@ wezterm/keybinds.lua   キーバインド
 ```
 
 - 既定シェル: PowerShell 7（無ければ Windows PowerShell 5.1 に落ちる）。ランチャーに 5.1・Git Bash・WSL も出る
-- フォント: 未指定＝WezTerm 同梱の JetBrains Mono（PC ごとの差が出ない）
+- フォント: HackGen Console（https://github.com/yuru7/HackGen ・手動で入れる。未導入の PC では同梱の JetBrains Mono に落ちる）
 - タイトルバーなし: 終了は `Alt+F4`、移動はタブバーの空き部分をドラッグ
 
 ## キーバインド

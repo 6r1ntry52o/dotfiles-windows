@@ -5,8 +5,8 @@ config.automatically_reload_config = true
 config.font_size = 12.0
 config.use_ime = true
 config.window_background_opacity = 0.85
--- フォントは未指定＝同梱の JetBrains Mono（どの PC でも同じ）。変えるならここ:
--- config.font = wezterm.font_with_fallback({ "HackGen Console", "JetBrains Mono" })
+-- HackGen Console（未導入の PC では同梱の JetBrains Mono に落ちる）
+config.font = wezterm.font_with_fallback({ "HackGen Console", "JetBrains Mono" })
 
 ----------------------------------------------------
 -- Shell（Windows）
