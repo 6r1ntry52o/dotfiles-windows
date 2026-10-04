@@ -39,20 +39,70 @@ powershell -ExecutionPolicy Bypass -File $HOME\dev_repository\dotfiles-windows\i
 
 ## 構成
 
+### リポの中身
+
 ```
-install.ps1            セットアップ
-wezterm/wezterm.lua    本体（見た目・既定シェル・タブ）
-wezterm/keybinds.lua   キーバインド
-powershell/profile.ps1 PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
-wsl/osc7.sh            WSL の bash 用（現在地の通知。末尾で aliases.sh を読む）
-wsl/osc7.zsh           WSL の zsh 用（現在地の通知。末尾で aliases.sh を読む）
-wsl/aliases.sh         WSL の bash・zsh 共通のエイリアス
-wsl/install.sh         WSL 側のセットアップ（install.ps1 から呼ばれる）
-nvim/init.lua          Neovim の入口（lua/config/lazy.lua を読むだけ）
-nvim/lua/config/       LazyVim の設定（lazy.lua＝起動・options／keymaps／autocmds＝上書き）
-nvim/lua/plugins/      自分で足す・変えるプラグイン
-nvim/lazy-lock.json    プラグインの版の固定（lazy.nvim が書く）
-nvim/lazyvim.json      LazyVim の状態（入れた extras・LazyVim が書く）
+dotfiles-windows/
+├── install.ps1              セットアップ（winget で導入し、下の各設定を PC へ繋ぐ）
+├── README.md
+├── wezterm/
+│   ├── wezterm.lua          本体（見た目・既定シェル・タブ）
+│   └── keybinds.lua         キーバインド
+├── powershell/
+│   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
+├── wsl/
+│   ├── install.sh           WSL 側のセットアップ（install.ps1 から呼ばれる）
+│   ├── osc7.sh              bash 用（現在地の通知。末尾で aliases.sh を読む）
+│   ├── osc7.zsh             zsh 用（現在地の通知。末尾で aliases.sh を読む）
+│   └── aliases.sh           bash・zsh 共通のエイリアス
+└── nvim/                    Neovim（LazyVim/starter が元）
+    ├── init.lua             入口（lua/config/lazy.lua を読むだけ）
+    ├── lua/
+    │   ├── config/
+    │   │   ├── lazy.lua     起動（lazy.nvim と LazyVim を読み込む）
+    │   │   ├── options.lua  オプションの上書き
+    │   │   ├── keymaps.lua  キーの上書き
+    │   │   └── autocmds.lua 自動コマンドの上書き
+    │   └── plugins/         自分で足す・変えるプラグイン
+    ├── lazy-lock.json       プラグインの版の固定（lazy.nvim が書く）
+    ├── lazyvim.json         LazyVim の状態（入れた extras・LazyVim が書く）
+    ├── stylua.toml          Lua の整形設定
+    ├── .neoconf.json        neoconf の設定
+    └── LICENSE              LazyVim/starter の Apache-2.0
+```
+
+### PC 側とのつながり
+
+`install.ps1` が作るのは右向きの矢印だけ。設定の実体はすべてリポにある。
+
+```
+PC 側（install.ps1 が作る・書き足す）                  リポ側（実体）
+─────────────────────────────────────────────────────────────────────────
+Windows
+├── ~/.wezterm.lua                    ──読み込む──▶ wezterm/wezterm.lua
+│   （5 行のスタブ）                                 └─▶ wezterm/keybinds.lua
+├── ~/Documents/PowerShell/
+│   └── Microsoft.PowerShell_profile.ps1
+│       （1 行を追記）                ──読み込む──▶ powershell/profile.ps1
+├── %LOCALAPPDATA%/nvim               ──junction──▶ nvim/
+└── %LOCALAPPDATA%/nvim-data          リポの外（プラグイン本体・パーサー。消しても入り直す）
+
+WSL（docker-desktop 以外の各ディストリ）
+├── ~/.bashrc （1 行を追記）          ──読み込む──▶ wsl/osc7.sh  ─┐
+└── ~/.zshrc  （1 行を追記・zsh 有時）──読み込む──▶ wsl/osc7.zsh ─┴─▶ wsl/aliases.sh
+```
+
+### 動かしたときの重なり
+
+```
+WezTerm（wezterm/*.lua）
+├── タブ / ペイン
+│   ├── PowerShell 7（既定・powershell/profile.ps1）
+│   │   └── vi / vim / view ─▶ Neovim + LazyVim（nvim/）
+│   ├── WSL の bash・zsh（Ctrl+Shift+U・wsl/*.sh）
+│   │   └── vi / vim / view ─▶ WSL 側の Neovim（入れていれば。nvim/ の設定は繋がない）
+│   └── Git Bash・PowerShell 5.1（Ctrl+Shift+L のランチャーから）
+└── Leader = Ctrl+Q（WezTerm のキー）／Neovim の <leader> = Space
 ```
 
 - Neovim: LazyVim（https://www.lazyvim.org ・`nvim/` は LazyVim/starter が元。`nvim/LICENSE` はその Apache-2.0）。`<leader>` はスペース。押して待つとキー一覧が出る
