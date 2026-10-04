@@ -1,12 +1,26 @@
 local wezterm = require("wezterm")
+local keybinds = require("keybinds")
 local config = wezterm.config_builder()
 
 config.automatically_reload_config = true
-config.font_size = 12.0
 config.use_ime = true
-config.window_background_opacity = 0.85
+
+----------------------------------------------------
+-- 見た目
+----------------------------------------------------
+local WINDOW_OPACITY = 0.97
+-- ウィンドウとタブバーの背景（黒。不透明度はウィンドウより 0.1 高くする・上限 1.0）
+local BAR_BG = string.format("rgba(0,0,0,%.2f)", math.min(WINDOW_OPACITY + 0.1, 1.0))
+
+config.font_size = 12.0
 -- HackGen Console（未導入の PC では同梱の JetBrains Mono に落ちる）
 config.font = wezterm.font_with_fallback({ "HackGen Console", "JetBrains Mono" })
+config.window_background_opacity = WINDOW_OPACITY
+config.window_background_gradient = {
+  colors = { BAR_BG },
+}
+-- タイトルバーを非表示（終了は Alt+F4・移動はタブバーの空き部分をドラッグ）
+config.window_decorations = "RESIZE"
 
 ----------------------------------------------------
 -- Shell（Windows）
@@ -20,23 +34,28 @@ local function exists(path)
   return false
 end
 
+-- PowerShell 7 の有無（winget 版は MSIX＝実行エイリアス、MSI 版は Program Files に入る）
+local function has_pwsh()
+  local alias = (os.getenv("LOCALAPPDATA") or "") .. "/Microsoft/WindowsApps/pwsh.exe"
+  return exists("C:/Program Files/PowerShell/7/pwsh.exe") or #wezterm.glob(alias) > 0
+end
+
 if wezterm.target_triple:find("windows") then
-  local git_bash = "C:/Program Files/Git/bin/bash.exe"
+  local PWSH = { "pwsh.exe", "-NoLogo" }
+  local POWERSHELL = { "powershell.exe", "-NoLogo" }
+  local GIT_BASH = "C:/Program Files/Git/bin/bash.exe"
   local menu = {}
 
   -- PowerShell 7 があれば既定、無ければ Windows PowerShell 5.1
-  -- （winget 版は MSIX＝実行エイリアス、MSI 版は Program Files に入る）
-  local alias = (os.getenv("LOCALAPPDATA") or "") .. "/Microsoft/WindowsApps/pwsh.exe"
-  local has_pwsh = exists("C:/Program Files/PowerShell/7/pwsh.exe") or #wezterm.glob(alias) > 0
-  if has_pwsh then
-    config.default_prog = { "pwsh.exe", "-NoLogo" }
-    table.insert(menu, { label = "PowerShell 7", args = { "pwsh.exe", "-NoLogo" } })
+  if has_pwsh() then
+    config.default_prog = PWSH
+    table.insert(menu, { label = "PowerShell 7", args = PWSH })
   else
-    config.default_prog = { "powershell.exe", "-NoLogo" }
+    config.default_prog = POWERSHELL
   end
-  table.insert(menu, { label = "Windows PowerShell 5.1", args = { "powershell.exe", "-NoLogo" } })
-  if exists(git_bash) then
-    table.insert(menu, { label = "Git Bash", args = { git_bash, "-l", "-i" } })
+  table.insert(menu, { label = "Windows PowerShell 5.1", args = POWERSHELL })
+  if exists(GIT_BASH) then
+    table.insert(menu, { label = "Git Bash", args = { GIT_BASH, "-l", "-i" } })
   end
   config.launch_menu = menu
 
@@ -52,62 +71,66 @@ end
 ----------------------------------------------------
 -- Tab
 ----------------------------------------------------
--- タイトルバーを非表示（終了は Alt+F4・移動はタブバーの空き部分をドラッグ）
-config.window_decorations = "RESIZE"
+local TAB_ACTIVE_BG = "#335599" -- アクティブなタブ（RGB 51,85,153）
+local TAB_INACTIVE_BG = "#22272e" -- それ以外のタブ
+local TAB_HOVER_BG = "#2d3440" -- マウスを載せたタブ
+local TAB_ACTIVE_FG = "#ffffff"
+local TAB_INACTIVE_FG = "#8b949e"
+
+local TAB_TITLE_MAX = 16
+local TAB_GAP = "▏" -- U+258F（左 1/8 ブロック）。WezTerm が自前で描くのでフォントに依らない
+
 -- タブバーの表示
 config.show_tabs_in_tab_bar = true
 -- タブが一つの時は非表示（false で常に表示）
 config.hide_tab_bar_if_only_one_tab = false
--- falseにするとタブバーの透過が効かなくなる
--- config.use_fancy_tab_bar = false
-
--- タブバーの透過
-config.window_frame = {
-  inactive_titlebar_bg = "none",
-  active_titlebar_bg = "none",
-}
-
--- タブバーを背景色に合わせる
-config.window_background_gradient = {
-  colors = { "#000000" },
-}
-
--- タブの追加ボタンを非表示
+-- retro 型のタブバー＝文字セルで描く四角いタブ（丸みなし）
+-- （fancy 型は角の丸みが固定で変えられない。retro 型は×ボタンも無い）
+config.use_fancy_tab_bar = false
 config.show_new_tab_button_in_tab_bar = false
-
--- タブ同士の境界線を非表示
+-- 名前＋区切りのセル 1＋右の余白 1 が収まる幅
+config.tab_max_width = TAB_TITLE_MAX + 2
 config.colors = {
   tab_bar = {
-    inactive_tab_edge = "none",
+    background = BAR_BG,
   },
 }
 
--- タブの形をカスタマイズ
--- タブの左側の装飾
-local SOLID_LEFT_ARROW = wezterm.nerdfonts.ple_lower_right_triangle
--- タブの右側の装飾
-local SOLID_RIGHT_ARROW = wezterm.nerdfonts.ple_upper_left_triangle
-
-wezterm.on("format-tab-title", function(tab, tabs, panes, config, hover, max_width)
-  local background = "#5c6d74"
-  local foreground = "#FFFFFF"
-  local edge_background = "none"
-  if tab.is_active then
-    background = "#ae8b2d"
-    foreground = "#FFFFFF"
+-- タブに出す名前（短く）: 手で付けた名前 > 実行中のプログラム名 > ペインのタイトル
+local function tab_name(tab)
+  if tab.tab_title and #tab.tab_title > 0 then
+    return tab.tab_title
   end
-  local edge_foreground = background
-  local title = "   " .. wezterm.truncate_right(tab.active_pane.title, max_width - 1) .. "   "
+  local pane = tab.active_pane
+  local proc = pane.foreground_process_name or ""
+  if #proc > 0 then
+    -- "C:\...\pwsh.exe" → "pwsh"
+    return (proc:gsub("^.*[/\\]", ""):gsub("%.[eE][xX][eE]$", ""))
+  end
+  return pane.title
+end
+
+local function tab_bg(tab, hover)
+  if tab.is_active then
+    return TAB_ACTIVE_BG
+  end
+  return hover and TAB_HOVER_BG or TAB_INACTIVE_BG
+end
+
+wezterm.on("format-tab-title", function(tab, _, _, _, hover)
+  local fg = tab.is_active and TAB_ACTIVE_FG or TAB_INACTIVE_FG
+  local bg = tab_bg(tab, hover)
+  local name = wezterm.truncate_right(tab_name(tab), TAB_TITLE_MAX)
   return {
-    { Background = { Color = edge_background } },
-    { Foreground = { Color = edge_foreground } },
-    { Text = SOLID_LEFT_ARROW },
-    { Background = { Color = background } },
-    { Foreground = { Color = foreground } },
-    { Text = title },
-    { Background = { Color = edge_background } },
-    { Foreground = { Color = edge_foreground } },
-    { Text = SOLID_RIGHT_ARROW },
+    -- タブ間の区切り＝左端の細い縦線（セル幅の 1/8 ≒ 1px）をバーの背景色で描く。
+    -- retro 型は文字セル単位なので、空白 1 文字より細い隙間はこの方法で作る
+    { Background = { Color = bg } },
+    { Foreground = { Color = BAR_BG } },
+    { Text = TAB_GAP },
+    -- 名前（左の余白は区切りのセルが兼ねる・右に余白 1）
+    { Foreground = { Color = fg } },
+    { Attribute = { Intensity = tab.is_active and "Bold" or "Normal" } },
+    { Text = name .. " " },
   }
 end)
 
@@ -115,8 +138,8 @@ end)
 -- keybinds
 ----------------------------------------------------
 config.disable_default_key_bindings = true
-config.keys = require("keybinds").keys
-config.key_tables = require("keybinds").key_tables
+config.keys = keybinds.keys
+config.key_tables = keybinds.key_tables
 config.leader = { key = "q", mods = "CTRL", timeout_milliseconds = 2000 }
 
 return config

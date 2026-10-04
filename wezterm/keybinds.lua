@@ -79,12 +79,12 @@ return {
     { key = "Tab", mods = "CTRL", action = act.ActivateTabRelative(1) },
     { key = "Tab", mods = "SHIFT|CTRL", action = act.ActivateTabRelative(-1) },
     -- Tab入れ替え
-    { key = "{", mods = "LEADER", action = act({ MoveTabRelative = -1 }) },
+    { key = "{", mods = "LEADER", action = act.MoveTabRelative(-1) },
+    { key = "}", mods = "LEADER", action = act.MoveTabRelative(1) },
     -- Tab新規作成
-    { key = "t", mods = "SHIFT|CTRL", action = act({ SpawnTab = "CurrentPaneDomain" }) },
+    { key = "t", mods = "SHIFT|CTRL", action = act.SpawnTab("CurrentPaneDomain") },
     -- Tabを閉じる
-    { key = "w", mods = "SHIFT|CTRL", action = act({ CloseCurrentTab = { confirm = true } }) },
-    { key = "}", mods = "LEADER", action = act({ MoveTabRelative = 1 }) },
+    { key = "w", mods = "SHIFT|CTRL", action = act.CloseCurrentTab({ confirm = true }) },
 
     -- 画面フルスクリーン切り替え
     { key = "Enter", mods = "ALT", action = act.ToggleFullScreen },
@@ -101,7 +101,7 @@ return {
     { key = "d", mods = "LEADER", action = act.SplitVertical({ domain = "CurrentPaneDomain" }) },
     { key = "r", mods = "LEADER", action = act.SplitHorizontal({ domain = "CurrentPaneDomain" }) },
     -- Paneを閉じる leader + x
-    { key = "x", mods = "LEADER", action = act({ CloseCurrentPane = { confirm = true } }) },
+    { key = "x", mods = "LEADER", action = act.CloseCurrentPane({ confirm = true }) },
     -- Pane移動 leader + hlkj
     { key = "h", mods = "LEADER", action = act.ActivatePaneDirection("Left") },
     { key = "l", mods = "LEADER", action = act.ActivatePaneDirection("Right") },
@@ -151,8 +151,8 @@ return {
       { key = "k", action = act.AdjustPaneSize({ "Up", 1 }) },
       { key = "j", action = act.AdjustPaneSize({ "Down", 1 }) },
 
-      -- Cancel the mode by pressing escape
-      { key = "Enter", action = "PopKeyTable" },
+      -- Enter で抜ける
+      { key = "Enter", action = act.PopKeyTable },
     },
     activate_pane = {
       { key = "h", action = act.ActivatePaneDirection("Left") },
@@ -209,7 +209,7 @@ return {
       {
         key = "Enter",
         mods = "NONE",
-        action = act.Multiple({ { CopyTo = "ClipboardAndPrimarySelection" }, { CopyMode = "Close" } }),
+        action = act.Multiple({ act.CopyTo("ClipboardAndPrimarySelection"), act.CopyMode("Close") }),
       },
       { key = "Escape", mods = "NONE", action = act.CopyMode("Close") },
       { key = "c", mods = "CTRL", action = act.CopyMode("Close") },
