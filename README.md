@@ -117,7 +117,7 @@ WezTerm（wezterm/*.lua）
 - 既定シェル: PowerShell 7（無ければ Windows PowerShell 5.1 に落ちる）。ランチャーに 5.1・Git Bash・WSL も出る
 - WSL: ディストリは自動検出（`docker-desktop` 以外の先頭を `Ctrl+Shift+U` に割り当て）。WSL のタブ内で分割・新規タブをすると同じ WSL で開く。WSL 自体の導入は `wsl --install`（このリポでは入れない）
 - フォント: HackGen Console（https://github.com/yuru7/HackGen ・手動で入れる。未導入の PC では同梱の JetBrains Mono に落ちる）
-- タブ: 丸みのない四角形（retro 型）。表示はプログラム名だけで 16 文字まで。アクティブ＝`#335599`。×ボタンは無い（閉じるのは `Ctrl+Shift+W`）
+- タブ: 丸みのない四角形（retro 型）。表示はプログラム名だけで 16 文字まで。アクティブ＝`#82aaff`（LazyVim のタイトルと同じ青・文字は濃色）。×ボタンは無い（閉じるのは `Ctrl+Shift+W`）
 - タイトルバーなし: 終了は `Alt+F4`、移動はタブバーの空き部分をドラッグ
 
 ## キーバインド
@@ -135,7 +135,7 @@ WezTerm（wezterm/*.lua）
 | `Leader d` / `Leader r` | 上下 / 左右に分割 |
 | `Leader h/j/k/l` | ペイン移動 |
 | `Leader x` / `Leader z` | ペインを閉じる / ズーム |
-| `Leader s` → `h/j/k/l` | ペインのサイズ変更（`Enter` で抜ける） |
+| `Leader s` → `h/j/k/l` | ペインのサイズ変更（`Enter` / `Esc` で抜ける） |
 | `Ctrl+Shift+[` | ペイン選択 |
 | `Leader w` / `Leader W` / `Leader $` | ワークスペース切替 / 新規 / 改名 |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | コピー / 貼り付け |

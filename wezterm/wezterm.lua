@@ -8,16 +8,18 @@ config.use_ime = true
 ----------------------------------------------------
 -- 見た目
 ----------------------------------------------------
-local WINDOW_OPACITY = 0.97
--- ウィンドウとタブバーの背景（黒。不透明度はウィンドウより 0.1 高くする・上限 1.0）
-local BAR_BG = string.format("rgba(0,0,0,%.2f)", math.min(WINDOW_OPACITY + 0.1, 1.0))
+local WINDOW_OPACITY = 0.95
+-- ウィンドウの背景（黒）。WINDOW_OPACITY で透ける
+local WINDOW_BG = "#000000"
+-- タブバーは自分では塗らない＝下のウィンドウ背景がそのまま見える（本文と同じ透け方になる）
+local BAR_BG = "rgba(0,0,0,0)"
 
 config.font_size = 12.0
 -- HackGen Console（未導入の PC では同梱の JetBrains Mono に落ちる）
 config.font = wezterm.font_with_fallback({ "HackGen Console", "JetBrains Mono" })
 config.window_background_opacity = WINDOW_OPACITY
 config.window_background_gradient = {
-  colors = { BAR_BG },
+  colors = { WINDOW_BG },
 }
 -- タイトルバーを非表示（終了は Alt+F4・移動はタブバーの空き部分をドラッグ）
 config.window_decorations = "RESIZE"
@@ -71,10 +73,11 @@ end
 ----------------------------------------------------
 -- Tab
 ----------------------------------------------------
-local TAB_ACTIVE_BG = "#335599" -- アクティブなタブ（RGB 51,85,153）
+-- アクティブなタブ＝LazyVim のタイトル（起動画面のロゴ）の青。tokyonight-moon の blue と同じ値
+local TAB_ACTIVE_BG = "#82aaff"
 local TAB_INACTIVE_BG = "#22272e" -- それ以外のタブ
 local TAB_HOVER_BG = "#2d3440" -- マウスを載せたタブ
-local TAB_ACTIVE_FG = "#ffffff"
+local TAB_ACTIVE_FG = "#1b1d2b" -- 明るい青の上なので濃色（LazyVim のステータスラインと同じ組み合わせ）
 local TAB_INACTIVE_FG = "#8b949e"
 
 local TAB_TITLE_MAX = 16
@@ -91,6 +94,10 @@ config.show_new_tab_button_in_tab_bar = false
 -- 名前＋区切りのセル 1＋右の余白 1 が収まる幅
 config.tab_max_width = TAB_TITLE_MAX + 2
 config.colors = {
+  -- カーソル＝赤（青系の画面の中で位置を見失わないため）。重なった文字は濃色
+  cursor_bg = "#ff4040",
+  cursor_border = "#ff4040",
+  cursor_fg = "#1b1d2b",
   tab_bar = {
     background = BAR_BG,
   },
@@ -122,10 +129,10 @@ wezterm.on("format-tab-title", function(tab, _, _, _, hover)
   local bg = tab_bg(tab, hover)
   local name = wezterm.truncate_right(tab_name(tab), TAB_TITLE_MAX)
   return {
-    -- タブ間の区切り＝左端の細い縦線（セル幅の 1/8 ≒ 1px）をバーの背景色で描く。
+    -- タブ間の区切り＝左端の細い縦線（セル幅の 1/8 ≒ 1px）をウィンドウの背景色で描く。
     -- retro 型は文字セル単位なので、空白 1 文字より細い隙間はこの方法で作る
     { Background = { Color = bg } },
-    { Foreground = { Color = BAR_BG } },
+    { Foreground = { Color = WINDOW_BG } },
     { Text = TAB_GAP },
     -- 名前（左の余白は区切りのセルが兼ねる・右に余白 1）
     { Foreground = { Color = fg } },

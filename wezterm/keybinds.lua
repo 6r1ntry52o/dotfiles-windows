@@ -151,8 +151,9 @@ return {
       { key = "k", action = act.AdjustPaneSize({ "Up", 1 }) },
       { key = "j", action = act.AdjustPaneSize({ "Down", 1 }) },
 
-      -- Enter で抜ける
+      -- Enter / Escape で抜ける
       { key = "Enter", action = act.PopKeyTable },
+      { key = "Escape", action = act.PopKeyTable },
     },
     activate_pane = {
       { key = "h", action = act.ActivatePaneDirection("Left") },
