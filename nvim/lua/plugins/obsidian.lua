@@ -1,4 +1,5 @@
--- Obsidian vault（C:\Users\6r1nt\core）を nvim 側から触る口。
+-- Obsidian vault を nvim 側から触る口。vault の場所は PC ごとに違うので、リポには書かず
+-- `~/.dotfiles.json` の "vault" から読む（lua/config/machine.lua・README の「PC ごとの設定」）。
 -- 入れた動機は「今開いているノートを Obsidian アプリで開く」＝ `:Obsidian open`。
 -- 本家 epwalsh/obsidian.nvim は更新が止まり、コミュニティ fork が後継（要 nvim 0.11+・手元は 0.11.6）。
 --
@@ -6,8 +7,12 @@
 -- 「nvim 側が md の中身を勝手に変える」既定は切ってある（frontmatter・ui）。
 -- vault 内の md バッファでは、このプラグインが <CR>（カーソル下のリンク追従／チェックボックス切替）と
 -- [o / ]o（前後のリンクへ移動）をバッファローカルに足す＝vault の外の md は何も変わらない。
+local vault = require("config.machine").str("vault")
+
 return {
   "obsidian-nvim/obsidian.nvim",
+  -- vault を設定していない PC では読み込まない（`~/.dotfiles.json` の "vault" が空）
+  enabled = vault ~= nil,
   version = "*", -- リリースタグに追従（main は未リリースの機能を含む）
   ft = { "markdown" }, -- md を開いた時に初めて起きる
   ---@module 'obsidian'
@@ -16,9 +21,10 @@ return {
     legacy_commands = false, -- 旧 :ObsidianOpen 形式のコマンドを作らない（4.0.0 で削除予定）
 
     -- path の最後の名前が、そのまま Obsidian 側の vault 名として URI に乗る
-    -- （commands/open.lua が vim.fs.basename(path) を使う）。"core" のまま一致させる。
+    -- （commands/open.lua が vim.fs.basename(path) を使う）。`~/.dotfiles.json` の "vault" の
+    -- フォルダ名が、Obsidian が開いている vault 名と一致している必要がある。
     workspaces = {
-      { name = "core", path = "C:/Users/6r1nt/core" },
+      { name = vim.fs.basename(vault or ""), path = vault or "" },
     },
 
     -- 🔴 保存時に frontmatter を作らせない。

@@ -159,6 +159,29 @@ if (-not (Test-Path $csc)) {
     }
 }
 
+# 7. Per-PC values: write ~/.dotfiles.json from the template when it is missing.
+#    Everything that differs between machines (the Obsidian vault path, display
+#    tweaks) lives there, so this repo stays machine-independent and can be cloned
+#    anywhere. nvim, WezTerm and the PowerShell profile all read that one file.
+$cfgPath = Join-Path $HOME '.dotfiles.json'
+if (Test-Path $cfgPath) {
+    Write-Host "ok       $cfgPath"
+} else {
+    $template = Get-Content (Join-Path $repo 'dotfiles.example.json') -Raw
+    # Fill in the vault when an Obsidian vault (a directory with .obsidian) is in a usual place
+    $vault = ''
+    foreach ($c in @((Join-Path $HOME 'core'), (Join-Path $HOME 'vault'), (Join-Path $HOME 'Obsidian'))) {
+        if (Test-Path (Join-Path $c '.obsidian')) { $vault = ($c -replace '\\', '/'); break }
+    }
+    $out = $template -replace '"vault": "[^"]*"', ('"vault": "' + $vault + '"')
+    [IO.File]::WriteAllText($cfgPath, $out, (New-Object Text.UTF8Encoding($false)))
+    if ($vault) {
+        Write-Host "created  $cfgPath (vault = $vault)"
+    } else {
+        Write-Warning "$cfgPath created. Set 'vault' to this PC's Obsidian vault path (forward slashes)."
+    }
+}
+
 Write-Host 'done. Restart WezTerm (or Ctrl+Shift+R to reload). Open a new tab to pick up the shell changes.'
 Write-Host 'Start nvim once and wait: LazyVim installs its plugins on the first run.'
 Write-Host 'On a new PC, run google-ime\Restore-GoogleIme.ps1 to get the Google IME key settings back.'

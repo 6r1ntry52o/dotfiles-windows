@@ -1,5 +1,7 @@
 local wezterm = require("wezterm")
 local keybinds = require("keybinds")
+-- この PC だけの値（`~/.dotfiles.json`）
+local machine = require("machine")
 local config = wezterm.config_builder()
 
 config.automatically_reload_config = true
@@ -14,7 +16,8 @@ local WINDOW_BG = "#000000"
 -- タブバーは自分では塗らない＝下のウィンドウ背景がそのまま見える（本文と同じ透け方になる）
 local BAR_BG = "rgba(0,0,0,0)"
 
-config.font_size = 12.0
+-- 画面の大きさは PC ごとに違うので、`~/.dotfiles.json` の wezterm.font_size で上書きできる
+config.font_size = machine.wezterm.font_size or 12.0
 -- HackGen Console（未導入の PC では同梱の JetBrains Mono に落ちる）
 config.font = wezterm.font_with_fallback({ "HackGen Console", "JetBrains Mono" })
 config.window_background_opacity = WINDOW_OPACITY

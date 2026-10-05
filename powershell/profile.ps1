@@ -24,3 +24,20 @@ if (Get-Command nvim -CommandType Application -ErrorAction SilentlyContinue) {
     Set-Alias -Name vim -Value nvim
     function view { nvim -R @args }
 }
+
+# Per-PC values (the Obsidian vault path and so on) live in ~/.dotfiles.json,
+# outside this repo, so the repo works on any PC from any clone location.
+# Template: dotfiles.example.json. install.ps1 writes the file when it is missing.
+$dotfilesConfig = Join-Path $HOME '.dotfiles.json'
+if (Test-Path $dotfilesConfig) {
+    try {
+        $cfg = Get-Content $dotfilesConfig -Raw | ConvertFrom-Json
+        if ($cfg.vault) {
+            $env:DOTFILES_VAULT = $cfg.vault
+            # vault : go to this PC's Obsidian vault
+            function vault { Set-Location $env:DOTFILES_VAULT }
+        }
+    } catch {
+        Write-Warning "cannot read ${dotfilesConfig}: $($_.Exception.Message)"
+    }
+}

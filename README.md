@@ -30,6 +30,9 @@ powershell -ExecutionPolicy Bypass -File $HOME\dev_repository\dotfiles-windows\i
 6. `tools/ime/Ime.cs` を `tools/bin/ime.exe` にビルドする（Windows 同梱の `csc.exe`。SDK も Visual Studio も要らない）
    - 外から IME を切る小物。Obsidian の Vim モードが呼ぶ（下の「日本語入力」）。Neovim は同じことを Lua でやるのでこれは使わない
    - Google 日本語入力の設定（`google-ime/`）は `install.ps1` では戻さない＝新しい PC で `google-ime\Restore-GoogleIme.ps1` を手で流す（既存の設定を黙って上書きしないため）
+7. `~/.dotfiles.json`（この PC だけの値）を、無ければ `dotfiles.example.json` から作る（下の「PC ごとの設定」）
+   - `vault` は `~/core`・`~/vault`・`~/Obsidian` に `.obsidian` があれば自動で入る。見つからなければ空で作るので手で書く
+   - 既にあれば中身は触らない
 
 ## 設定を変える・同期する
 
@@ -40,6 +43,29 @@ powershell -ExecutionPolicy Bypass -File $HOME\dev_repository\dotfiles-windows\i
   - 他の PC では `git pull` のあと `:Lazy restore`（lock の版に揃える）
   - `:LazyExtras` で足した機能は `nvim/lazyvim.json` に記録される（これも commit する）
 
+## PC ごとの設定（`~/.dotfiles.json`）
+
+PC ごとに変わる値は**ホームの `~/.dotfiles.json` 1 枚**に集める。リポの中には PC 固有のパスを書かない
+＝どの PC のどこに clone しても同じ設定が動く（公開リポに個人のパスも載らない）。
+雛形＝`dotfiles.example.json`・無ければ `install.ps1` が作る。
+
+```json
+{
+  "vault": "C:/Users/<you>/core",
+  "wezterm": { "font_size": 12.0 }
+}
+```
+
+| キー | 読む側 | 何に使う | 無いとき |
+|---|---|---|---|
+| `vault` | Neovim（`nvim/lua/config/machine.lua` → `nvim/lua/plugins/obsidian.lua`）・PowerShell（`powershell/profile.ps1`） | Obsidian vault の場所。`:Obsidian open`・`<leader>fo`・日次ノート／`$env:DOTFILES_VAULT` と `vault`（vault へ `cd` する関数） | obsidian.nvim を読み込まない・`vault` 関数も作らない |
+| `wezterm.font_size` | WezTerm（`wezterm/machine.lua` → `wezterm/wezterm.lua`） | 文字の大きさ（画面の違う PC で変える） | 12.0 |
+
+- パスは `/` 区切りで書く（`\` を書くなら Lua・JSON ともエスケープが要る）
+- 読む側は 3 つとも「ファイルが無い・JSON が壊れている・キーが無い」を既定値で流す＝起動は止まらない
+- WSL のシェルからは読んでいない（今は参照する値が無い。要るようになったら `wsl/aliases.sh` に足す）
+- この 1 枚は PC 固有なのでリポには入らない。新しい PC では `install.ps1` が作る（＝手で持ち回らない）
+
 ## 構成
 
 ### リポの中身
@@ -47,10 +73,12 @@ powershell -ExecutionPolicy Bypass -File $HOME\dev_repository\dotfiles-windows\i
 ```
 dotfiles-windows/
 ├── install.ps1              セットアップ（winget で導入し、下の各設定を PC へ繋ぐ）
+├── dotfiles.example.json    `~/.dotfiles.json` の雛形（PC ごとの値・上の「PC ごとの設定」）
 ├── README.md
 ├── wezterm/
 │   ├── wezterm.lua          本体（見た目・既定シェル・タブ）
-│   └── keybinds.lua         キーバインド
+│   ├── keybinds.lua         キーバインド
+│   └── machine.lua          `~/.dotfiles.json` を読む（font_size）
 ├── powershell/
 │   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
 ├── tools/
@@ -78,7 +106,8 @@ dotfiles-windows/
     │   │   ├── keymaps.lua  キーの上書き
     │   │   ├── autocmds.lua 自動コマンドの上書き
     │   │   ├── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
-    │   │   └── ime.lua      INSERT 以外では IME を OFF にする（下の「日本語入力」）
+    │   │   ├── ime.lua      INSERT 以外では IME を OFF にする（下の「日本語入力」）
+    │   │   └── machine.lua  `~/.dotfiles.json` を読む（vault の場所・上の「PC ごとの設定」）
     │   └── plugins/         自分で足す・変えるプラグイン
     │       ├── encoding.lua 文字コードの表示と <leader>sJ
     │       ├── obsidian.lua Obsidian vault（:Obsidian open・<leader>fo から呼ばれる）
@@ -98,6 +127,7 @@ dotfiles-windows/
 PC 側（install.ps1 が作る・書き足す）                  リポ側（実体）
 ─────────────────────────────────────────────────────────────────────────
 Windows
+├── ~/.dotfiles.json                  ◀──読まれる── この PC だけの値（nvim・WezTerm・profile.ps1 の 3 つが読む）
 ├── ~/.wezterm.lua                    ──読み込む──▶ wezterm/wezterm.lua
 │   （5 行のスタブ）                                 └─▶ wezterm/keybinds.lua
 ├── ~/Documents/PowerShell/
