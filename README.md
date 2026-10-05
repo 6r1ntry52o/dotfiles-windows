@@ -51,7 +51,8 @@ dotfiles-windows/
 ├── powershell/
 │   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
 ├── tools/
-│   └── Survey-Encoding.ps1  文字コードの棚卸し（読み取り専用・集計だけ画面に出す）
+│   ├── Survey-Encoding.ps1          文字コードの棚卸し（読み取り専用・集計だけ画面に出す）
+│   └── Install-MsbuildExtractor.ps1 compile_commands.json を作る抽出ツールを入れる（下の「C/C++」）
 ├── wsl/
 │   ├── install.sh           WSL 側のセットアップ（install.ps1 から呼ばれる）
 │   ├── osc7.sh              bash 用（現在地の通知。末尾で aliases.sh を読む）
@@ -67,7 +68,9 @@ dotfiles-windows/
     │   │   ├── autocmds.lua 自動コマンドの上書き
     │   │   └── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
     │   └── plugins/         自分で足す・変えるプラグイン
-    │       └── encoding.lua 文字コードの表示と <leader>sJ
+    │       ├── encoding.lua 文字コードの表示と <leader>sJ
+    │       ├── obsidian.lua Obsidian vault（:Obsidian open・<leader>fo から呼ばれる）
+    │       └── clangd.lua   C/C++ の :CompileCommands（下の「C/C++」）
     ├── lazy-lock.json       プラグインの版の固定（lazy.nvim が書く）
     ├── lazyvim.json         LazyVim の状態（入れた extras・LazyVim が書く）
     ├── stylua.toml          Lua の整形設定
@@ -176,6 +179,36 @@ UTF-8・UTF-8 BOM・UTF-16・CP932 が 1 回で当たる。結果の行と列番
 
 置換（`<leader>sr`・grug-far）の検索も ripgrep なので、CP932 のファイルは日本語では当たらない。
 CP932 のファイルを直す時は、そのファイルを開いて `:%s` でやる（保存時に CP932 のまま書き戻る）。
+
+## C/C++（Visual Studio のソリューション）
+
+LazyVim の `lang.clangd` extra を有効にしてある（`nvim/lazyvim.json`）。clangd 本体は mason が入れる。
+インクルードパスの手当ては要らない — clangd が MSVC と Windows SDK を自分で見つける
+（実測: `std::cout` から `BuildTools\VC\Tools\MSVC\14.44.35207\include\iostream` へ飛ぶ。`clangd --check` も 0 errors）。
+
+| 困る場面 | 手段 |
+|---|---|
+| 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`） |
+| ソースとヘッダを行き来したい | `<leader>ch` |
+| 別の `.cpp` にある定義が参照検索に出ない | `:CompileCommands`。そのファイルの上にある `.sln`（無ければ `.vcxproj`）から `compile_commands.json` を作る |
+| プロジェクト固有の `/I` や `/D` が効いていない | 同じく `:CompileCommands`。これが無いと clangd は「開いているファイルの翻訳単位」しか見ない |
+| 抽出ツールが入っていない | `pwsh -File tools\Install-MsbuildExtractor.ps1`（SHA256 を検証して `%LOCALAPPDATA%\msbuild-extractor\` に置く） |
+| LSP が動いているか確かめたい | `<leader>cl`（`:checkhealth` でも見える） |
+
+`:CompileCommands` の仕組み: MSBuild は `compile_commands.json` を出さないので、Microsoft の抽出ツール
+（[msbuild-extractor-sample](https://github.com/microsoft/msbuild-extractor-sample)）を呼ぶ。design-time 評価なのでビルドは走らない。
+構成（`Debug|x64` など）は `.sln` の `SolutionConfigurationPlatforms` の先頭を読む — 決め打ちにすると
+違う構成のフラグを掴む。リポに `msbuild-extractor.json` があればそれに従う（`-c`/`-a` は渡さない）。
+出力は `<ルート>\build\compile_commands.json`。clangd は編集中のファイルの親ディレクトリとその `build/` を
+順に探すので、置き場所の設定は要らない。ツールは `PATH` → `<プロジェクト>\.tools` → `%LOCALAPPDATA%\msbuild-extractor` の順に探す。
+
+実測（2026-10-05・テスト用の .sln で確認）: 生成前は別 TU の定義が参照に出ず（`add` の参照 1 件）、
+生成後は 3 件（ヘッダの宣言・`.cpp` の定義・呼び出し）。`AdditionalIncludeDirectories` に入れた
+`include\extra.h` も生成後に解決する。
+
+罠: 抽出ツールは self-contained の exe で、VS 側の MSBuild を見つけられないと .NET SDK 探索に落ち、
+`hostfxr.dll` を解決できず `DllNotFoundException` で死ぬ（`--vs-path` も `--msbuild-path` も効かない。
+引数の処理より前に走るため）。dotnet の `hostfxr.dll` を exe の隣に置くと通る＝導入スクリプトがやっている。
 
 ## 外す
 
