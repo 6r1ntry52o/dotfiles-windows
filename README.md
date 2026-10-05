@@ -4,10 +4,16 @@ Windows 用の設定置き場。WezTerm・PowerShell・WSL のシェル・Neovim
 
 ## 新しい PC に入れる
 
+**clone 先はどこでもよい**（リポの中に clone 場所を書いていない。`install.ps1` は自分の置き場所を基準に動く）。
+
 ```powershell
-git clone https://github.com/6r1ntry52o/dotfiles-windows.git $HOME\dev_repository\dotfiles-windows
-powershell -ExecutionPolicy Bypass -File $HOME\dev_repository\dotfiles-windows\install.ps1
+cd <好きな場所>
+git clone https://github.com/6r1ntry52o/dotfiles-windows.git
+powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 ```
+
+後から clone 先を移したら `install.ps1` を流し直す（`~/.wezterm.lua` のスタブと `%LOCALAPPDATA%\nvim` の junction が新しい場所を向く）。
+PC ごとに変わる値（vault の場所など）はリポではなく `~/.dotfiles.json` に入る（下の「PC ごとの設定」）。
 
 終わったら新しいタブを開き、`nvim` を一度起動して待つ（LazyVim が `nvim/lazy-lock.json` の版でプラグインを入れる。パーサーのビルドもここで走る）。確認は `:LazyHealth`。
 
@@ -229,9 +235,10 @@ Obsidian は外部コマンド経由でしか IME を触れないので、プラ
 1. コミュニティプラグイン **Vim IM Select**（`alonelur/vim-im-select-obsidian`）を入れて有効化する
 2. そのプラグインの設定で Windows 用の 3 項目を埋める
    - Windows Default IM: `0`
-   - Obtaining Command for Windows: `C:\Users\6r1nt\source\dotfiles-windows\tools\bin\ime.exe`
-   - Switching Command for Windows: `C:\Users\6r1nt\source\dotfiles-windows\tools\bin\ime.exe {im}`
-   - clone 先を変えたらこのパスも直す
+   - Obtaining Command for Windows: `<clone 先>\tools\bin\ime.exe`
+   - Switching Command for Windows: `<clone 先>\tools\bin\ime.exe {im}`
+   - `<clone 先>` の実際のパスは `install.ps1` が最後に表示する（後から知りたい時は clone の中で `pwsh -NoProfile -Command "(Resolve-Path .\tools\bin\ime.exe).Path"`）
+   - Obsidian の設定は絶対パスしか受けないので、clone 先を移したらここも直す（直すのはこの 2 行だけ）
 3. Obsidian を再起動する
 
 `ime.exe` は `tools/ime/Ime.cs` を `install.ps1` がビルドしたもの（引数なしで状態を出し、`0`/`1` で切り替える）。`winexe` なのでコンソール窓は一瞬も出ない。

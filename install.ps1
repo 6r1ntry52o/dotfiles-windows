@@ -185,3 +185,8 @@ if (Test-Path $cfgPath) {
 Write-Host 'done. Restart WezTerm (or Ctrl+Shift+R to reload). Open a new tab to pick up the shell changes.'
 Write-Host 'Start nvim once and wait: LazyVim installs its plugins on the first run.'
 Write-Host 'On a new PC, run google-ime\Restore-GoogleIme.ps1 to get the Google IME key settings back.'
+# Obsidian's Vim IM Select plugin only takes an absolute path, and this repo does not
+# know where it was cloned until now, so print the value to paste into its settings.
+if (Test-Path $imeOut) {
+    Write-Host "Obsidian (Vim IM Select) commands for Windows: $imeOut  /  $imeOut {im}"
+}

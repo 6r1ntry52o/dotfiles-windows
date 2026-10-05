@@ -26,7 +26,7 @@ vim.keymap.set("n", "<leader>fo", function()
   end
   -- vault（core）の中のノートは既定アプリではなく Obsidian で開く。
   -- vim.b.obsidian_buffer は obsidian.nvim が vault 内の md に立てる印なので、
-  -- vault の外の md（dev_repository の README 等）はそのまま下の既定アプリに落ちる。
+  -- vault の外の md（リポの README 等）はそのまま下の既定アプリに落ちる。
   if vim.b.obsidian_buffer then
     vim.cmd "Obsidian open"
     return
