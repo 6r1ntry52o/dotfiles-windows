@@ -50,6 +50,8 @@ dotfiles-windows/
 │   └── keybinds.lua         キーバインド
 ├── powershell/
 │   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
+├── tools/
+│   └── Survey-Encoding.ps1  文字コードの棚卸し（読み取り専用・集計だけ画面に出す）
 ├── wsl/
 │   ├── install.sh           WSL 側のセットアップ（install.ps1 から呼ばれる）
 │   ├── osc7.sh              bash 用（現在地の通知。末尾で aliases.sh を読む）
@@ -62,8 +64,10 @@ dotfiles-windows/
     │   │   ├── lazy.lua     起動（lazy.nvim と LazyVim を読み込む）
     │   │   ├── options.lua  オプションの上書き
     │   │   ├── keymaps.lua  キーの上書き
-    │   │   └── autocmds.lua 自動コマンドの上書き
+    │   │   ├── autocmds.lua 自動コマンドの上書き
+    │   │   └── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
     │   └── plugins/         自分で足す・変えるプラグイン
+    │       └── encoding.lua 文字コードの表示と <leader>sJ
     ├── lazy-lock.json       プラグインの版の固定（lazy.nvim が書く）
     ├── lazyvim.json         LazyVim の状態（入れた extras・LazyVim が書く）
     ├── stylua.toml          Lua の整形設定
@@ -146,6 +150,32 @@ WezTerm（wezterm/*.lua）
 | `Alt+Enter` | フルスクリーン |
 
 Mac 版との違い: `Cmd+T/W/C/V` → `Ctrl+Shift+T/W/C/V`、`Cmd+数字` → `Alt+数字`。
+
+## 文字コード（Shift_JIS が混ざったプロジェクト）
+
+会社のソースは CP932（Shift_JIS）が主で、UTF-8 のファイルも混ざっている。Neovim の既定では
+`fileencodings` の最後にある `latin1` がどんなバイト列でも「成功」してしまうので、BOM なしの
+CP932 は必ず化ける。`cp932` を `latin1` の前に入れてあるのがその対策（`nvim/lua/config/options.lua`）。
+
+| 困る場面 | 手段 |
+|---|---|
+| 開くと化ける | 自動で判定する（`ucs-bom` → `utf-8` → `cp932`）。外した時だけ `:EncOpen cp932`（`euc-jp` なども補完に出る） |
+| 今どれで開いているか分からない | ステータスライン右に出る（`cp932`・`BOM`・`CR`）。UTF-8 かつ BOM なしの時は何も出さない |
+| 日本語で grep が当たらない | `<leader>sJ`＝UTF-8 と CP932 を 1 回で検索する。既定の `<leader>sg` は UTF-8 のファイルにしか当たらない |
+| 保存で文字コードが変わらないか不安 | 読んだ文字コードのまま書き戻る。変えたい時だけ `:EncToUtf8` / `:EncToSjis` |
+| 新しく作ったファイルを周りに合わせたい | `:EncToSjis`（既定は UTF-8。これで混在を増やさない） |
+| `:make` や quickfix の出力が化ける | その場で `:set makeencoding=char`（常時入れると `:grep` の出力が逆に化けるので入れていない） |
+| プロジェクト全体の内訳を知りたい | `pwsh -File tools\Survey-Encoding.ps1 -Path <フォルダ>`（読み取り専用。パスを含む明細は `-DetailOut` を付けた時だけローカルに書く） |
+
+`<leader>sJ` の仕組み: ripgrep は 1 回の実行でファイルごとに文字コードを見分けられない
+（`--encoding sjis` は全ファイルを CP932 扱い、既定は BOM しか見ない）。そこで変換はさせず、
+検索語を「UTF-8 のバイト列 | CP932 のバイト列」の 2 択に展開して、バイト列として照合させている。
+UTF-8・UTF-8 BOM・UTF-16・CP932 が 1 回で当たる。結果の行と列番号は表示前に UTF-8 へ直す
+（`nvim/lua/config/encoding.lua`）。`sg` と分けてあるのは、この方式では `--no-unicode` が効いて
+正規表現の意味が少し変わるため（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）。
+
+置換（`<leader>sr`・grug-far）の検索も ripgrep なので、CP932 のファイルは日本語では当たらない。
+CP932 のファイルを直す時は、そのファイルを開いて `:%s` でやる（保存時に CP932 のまま書き戻る）。
 
 ## 外す
 
