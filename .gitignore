@@ -2,3 +2,5 @@
 *~
 .vscode/
 *.bak
+# install.ps1 が csc.exe でビルドする（ソースは tools/ime/）
+tools/bin/

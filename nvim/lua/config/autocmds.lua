@@ -96,3 +96,9 @@ vim.api.nvim_create_autocmd("WinLeave", {
 
 -- 起動直後の 1 枚目には WinEnter が来ないので、ここで 1 回だけ点ける。
 show_cross(vim.api.nvim_get_current_win(), true)
+
+----------------------------------------------------
+-- INSERT 以外では IME を OFF にする
+----------------------------------------------------
+-- 中身と理由は lua/config/ime.lua（Windows の nvim でだけ効く・他では何もしない）
+require("config.ime").setup()

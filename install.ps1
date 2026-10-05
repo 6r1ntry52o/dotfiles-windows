@@ -138,5 +138,27 @@ if ($target -and ($target.TrimEnd('\') -eq $nvimSrc.TrimEnd('\'))) {
     Write-Host "linked   $nvimDst -> $nvimSrc"
 }
 
+# 6. Tools: build ime.exe, which switches the IME off from outside the focused window.
+#    The Obsidian Vim plugin calls it; Neovim does the same thing in Lua (nvim/lua/config/ime.lua).
+#    Built with the csc.exe that ships with Windows (.NET Framework), so no SDK is needed.
+#    /target:winexe keeps a console window from flashing on every Esc.
+$imeSrc = Join-Path $repo 'tools\ime\Ime.cs'
+$imeOut = Join-Path $repo 'tools\bin\ime.exe'
+$csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+if (-not (Test-Path $csc)) {
+    Write-Warning "csc.exe not found at $csc. Skipping ime.exe."
+} elseif ((Test-Path $imeOut) -and ((Get-Item $imeOut).LastWriteTime -ge (Get-Item $imeSrc).LastWriteTime)) {
+    Write-Host "ok       $imeOut"
+} else {
+    New-Item -ItemType Directory -Force (Split-Path -Parent $imeOut) | Out-Null
+    & $csc /nologo /optimize /target:winexe "/out:$imeOut" $imeSrc
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "csc failed (exit $LASTEXITCODE)"
+    } else {
+        Write-Host "built    $imeOut"
+    }
+}
+
 Write-Host 'done. Restart WezTerm (or Ctrl+Shift+R to reload). Open a new tab to pick up the shell changes.'
 Write-Host 'Start nvim once and wait: LazyVim installs its plugins on the first run.'
+Write-Host 'On a new PC, run google-ime\Restore-GoogleIme.ps1 to get the Google IME key settings back.'

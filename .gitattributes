@@ -5,3 +5,6 @@
 *.zsh text eol=lf
 *.json text eol=lf
 *.toml text eol=lf
+*.cs text eol=crlf
+*.db binary
+google-ime/keymap.txt text eol=lf

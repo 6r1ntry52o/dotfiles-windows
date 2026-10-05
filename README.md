@@ -27,6 +27,9 @@ powershell -ExecutionPolicy Bypass -File $HOME\dev_repository\dotfiles-windows\i
    - 既存の `%LOCALAPPDATA%\nvim` が実フォルダなら `nvim.bak-日時` に改名して退避する
    - junction なので管理者権限は不要。clone 先を移動したら再実行（古い junction は張り替える）
    - WezTerm と違ってスタブにしないのは、lazy.nvim が `lazy-lock.json` を設定フォルダへ書くため（フォルダごとリポに置かないと版を追跡できない）
+6. `tools/ime/Ime.cs` を `tools/bin/ime.exe` にビルドする（Windows 同梱の `csc.exe`。SDK も Visual Studio も要らない）
+   - 外から IME を切る小物。Obsidian の Vim モードが呼ぶ（下の「日本語入力」）。Neovim は同じことを Lua でやるのでこれは使わない
+   - Google 日本語入力の設定（`google-ime/`）は `install.ps1` では戻さない＝新しい PC で `google-ime\Restore-GoogleIme.ps1` を手で流す（既存の設定を黙って上書きしないため）
 
 ## 設定を変える・同期する
 
@@ -52,7 +55,15 @@ dotfiles-windows/
 │   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
 ├── tools/
 │   ├── Survey-Encoding.ps1          文字コードの棚卸し（読み取り専用・集計だけ画面に出す）
-│   └── Install-MsbuildExtractor.ps1 compile_commands.json を作る抽出ツールを入れる（下の「C/C++」）
+│   ├── Install-MsbuildExtractor.ps1 compile_commands.json を作る抽出ツールを入れる（下の「C/C++」）
+│   ├── ime/Ime.cs                   外から IME を切る小物のソース（install.ps1 がビルド）
+│   └── bin/                         ビルド結果（git 管理外・ime.exe）
+├── google-ime/                 Google 日本語入力の設定（下の「日本語入力」）
+│   ├── config1.db                   設定の実体（復元に使う）
+│   ├── keymap.txt                   カスタムキーマップ（F13=OFF・F14=ON）
+│   ├── settings.md                  既定と違う所の説明
+│   ├── Export-GoogleIme.ps1         今のPC → リポ
+│   └── Restore-GoogleIme.ps1        リポ → 新しいPC
 ├── wsl/
 │   ├── install.sh           WSL 側のセットアップ（install.ps1 から呼ばれる）
 │   ├── osc7.sh              bash 用（現在地の通知。末尾で aliases.sh を読む）
@@ -66,7 +77,8 @@ dotfiles-windows/
     │   │   ├── options.lua  オプションの上書き
     │   │   ├── keymaps.lua  キーの上書き
     │   │   ├── autocmds.lua 自動コマンドの上書き
-    │   │   └── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
+    │   │   ├── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
+    │   │   └── ime.lua      INSERT 以外では IME を OFF にする（下の「日本語入力」）
     │   └── plugins/         自分で足す・変えるプラグイン
     │       ├── encoding.lua 文字コードの表示と <leader>sJ
     │       ├── obsidian.lua Obsidian vault（:Obsidian open・<leader>fo から呼ばれる）
@@ -154,6 +166,46 @@ WezTerm（wezterm/*.lua）
 
 Mac 版との違い: `Cmd+T/W/C/V` → `Ctrl+Shift+T/W/C/V`、`Cmd+数字` → `Alt+数字`。
 
+## 日本語入力（IME）
+
+IME は Google 日本語入力。**ON/OFF はトグルを使わず、F13 = OFF・F14 = ON**（キーボード側の QMK レイヤから送る。macOS の「英数 / かな」と同じ考え方＝押した方向が決まっているので、今どちらかを覚えていなくても外さない）。
+
+### Neovim: INSERT 以外では必ず OFF
+
+`nvim/lua/config/ime.lua`。INSERT を抜けた時・コマンドラインを抜けた時・`:terminal` の入力モードを抜けた時・起動時・他のアプリから戻った時（INSERT 中以外）に IME を切る。
+
+- 外部コマンドは呼ばない。LuaJIT の FFI で `GetForegroundWindow` → `ImmGetDefaultIMEWnd` → `WM_IME_CONTROL` を直接叩く（Esc のたびに exe を起動しない）
+- フォーカスを失っている間は何もしない（前面は別アプリ＝そちらの IME を消さないため）
+- Windows の Neovim だけ。WSL・Linux 側の Neovim では何もしない（あちらの IME は X/Wayland 側の持ち物）
+- 効いているかの確認は `:ImeState`（0=OFF・1=ON）
+- INSERT に戻った時に IME を元へ戻すことはしない。「INSERT 以外は必ず OFF」が目的で、日本語を打つ時は F14 を押す
+
+### Google 日本語入力の設定
+
+| ファイル | 何 |
+|---|---|
+| `google-ime/config1.db` | 設定の実体。復元に使う |
+| `google-ime/keymap.txt` | カスタムキーマップ。GUI の「キー設定の選択 → 編集 → インポート」でも読める形 |
+| `google-ime/settings.md` | 既定と違う所の説明（カスタムキーマップ・絵文字変換 ON） |
+| `google-ime/Export-GoogleIme.ps1` | 今のPC → リポ（GUI で設定を変えた後に流す） |
+| `google-ime/Restore-GoogleIme.ps1` | リポ → このPC（新しい PC のセットアップ用。今の設定は `.bak-日時` に退避する） |
+
+ユーザー辞書と学習履歴（`history.db`・`segment.db` ほか）は入れない＝個人の入力内容そのもので、公開リポジトリに置くものではない。新しい PC では学習し直す。
+
+### Obsidian（Vim モード）
+
+Obsidian は外部コマンド経由でしか IME を触れないので、プラグインを 1 つ入れる（手作業）:
+
+1. コミュニティプラグイン **Vim IM Select**（`alonelur/vim-im-select-obsidian`）を入れて有効化する
+2. そのプラグインの設定で Windows 用の 3 項目を埋める
+   - Windows Default IM: `0`
+   - Obtaining Command for Windows: `C:\Users\6r1nt\source\dotfiles-windows\tools\bin\ime.exe`
+   - Switching Command for Windows: `C:\Users\6r1nt\source\dotfiles-windows\tools\bin\ime.exe {im}`
+   - clone 先を変えたらこのパスも直す
+3. Obsidian を再起動する
+
+`ime.exe` は `tools/ime/Ime.cs` を `install.ps1` がビルドしたもの（引数なしで状態を出し、`0`/`1` で切り替える）。`winexe` なのでコンソール窓は一瞬も出ない。
+
 ## 文字コード（Shift_JIS が混ざったプロジェクト）
 
 会社のソースは CP932（Shift_JIS）が主で、UTF-8 のファイルも混ざっている。Neovim の既定では
@@ -215,3 +267,5 @@ LazyVim の `lang.clangd` extra を有効にしてある（`nvim/lazyvim.json`�
 - `~/.wezterm.lua` を消す（退避した `.bak-*` があれば戻す）
 - `$PROFILE` と WSL の `~/.bashrc`・`~/.zshrc` から、末尾が `# managed by dotfiles-windows/install.ps1` の行を消す
 - `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction だけ外す（リポの `nvim/` は残る。退避した `nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` を消す
+- Google 日本語入力の設定を戻すなら `config1.db.bak-*` を元の名前に戻す（`Restore-GoogleIme.ps1` が退避したもの）。GUI だけで戻すならキー設定の選択を「MS-IME」にする
+- Obsidian の Vim IM Select を無効化する。`tools/bin/` は消してよい（`install.ps1` が作り直す）
