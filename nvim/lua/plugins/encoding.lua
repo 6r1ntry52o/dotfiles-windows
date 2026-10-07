@@ -39,7 +39,8 @@ return {
   -- <leader>sJ … UTF-8 と Shift_JIS が混ざったツリーを 1 回で検索する grep（cwd 起点）。
   -- 既定の <leader>sg は日本語で検索すると UTF-8 のファイルにしか当たらない（rg は
   -- BOM なし CP932 を見分けられない）。sJ は検索語を「UTF-8 のバイト列 | CP932 のバイト列」
-  -- の 2 択に展開し、結果の表示と列番号を UTF-8 に直す。仕組み＝lua/config/encoding.lua
+  -- の 2 択に展開し、結果の表示・列番号・右のプレビューを UTF-8 に直す。
+  -- 仕組み＝lua/config/encoding.lua
   --
   -- sg と sJ を分けてあるのは、sJ では --no-unicode が効いて正規表現の意味が少し変わるため
   --（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）。
@@ -67,6 +68,8 @@ return {
             },
             -- CP932 のまま出てきた行を UTF-8 に直す
             transform = Enc.fix_item,
+            -- 右のプレビューも UTF-8 に直す（snacks の既定は生のバイト列を流し込む）
+            preview = Enc.preview,
           })
         end,
         desc = "Grep (UTF-8 + Shift_JIS)",

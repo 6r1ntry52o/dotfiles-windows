@@ -43,6 +43,9 @@ function M.is_utf8(s)
 end
 
 -- CP932 のバイト列を UTF-8 に直す。UTF-8 ならそのまま返す。
+-- 行が途中で切れていて 2 バイト目が無いバイト列が混ざっていても（snacks のプレビューは
+-- 長い行を 500 バイトで切る）、Windows の iconv はそこだけ "?" にして残りを返す
+-- （nil にはならない＝2026-10-07 実測）。
 ---@param s string
 ---@return string text, boolean converted
 function M.to_utf8(s)
@@ -133,6 +136,59 @@ function M.fix_item(item)
     item.positions, item.end_pos = nil, nil
     item.line = M.to_utf8(item.line or text)
   end
+end
+
+-- プレビュー（picker の右側）の文字化け対策。
+-- snacks のファイルプレビューは io.open で生のバイト列を読んで buffer に流し込む＝
+-- nvim の 'fileencodings' を通らないので、CP932 のファイルは必ず化ける
+-- （一覧は fix_item で直るが、プレビューは別経路）。grep の一致行が ASCII だけでも
+-- 周りの日本語コメントが化けるため、プレビューは行単位ではなく buffer 全体を見る。
+--
+-- 既定のプレビューを走らせた後、UTF-8 でない行だけ直す（元の文字コードは分からない
+-- ので CP932 と決め打つ＝sJ で探しているのは UTF-8 と CP932 の混在ツリー）。
+---@param ctx snacks.picker.preview.ctx
+local function fix_buf(ctx)
+  local buf = ctx.buf
+  if not (buf and vim.api.nvim_buf_is_valid(buf)) then
+    return false
+  end
+  -- 実ファイルの buffer は触らない（名前がある＝nvim が 'fileencodings' で開いた物）。
+  -- プレビュー用の scratch だけを書き換える＝麟太郎が編集中の buffer を壊さない。
+  if buf == ctx.item.buf or vim.api.nvim_buf_get_name(buf) ~= "" then
+    return false
+  end
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  local hit = false
+  for i, line in ipairs(lines) do
+    if not M.is_utf8(line) then
+      local fixed, converted = M.to_utf8(line)
+      if converted then
+        lines[i], hit = fixed, true
+      end
+    end
+  end
+  if not hit then
+    return false
+  end
+  local modifiable = vim.bo[buf].modifiable
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = modifiable
+  return true
+end
+
+-- 既定のファイルプレビュー＋上の直し。picker の `preview` に渡す。
+-- 全部の picker に効かせたくなったら opts.picker.previewers ではなく
+-- `Snacks.picker.preview.file` を差し替える必要があるので、ここでは sJ 専用のまま
+-- （latin1 の実ファイルまで CP932 とみなして潰すのを避ける）。
+---@param ctx snacks.picker.preview.ctx
+function M.preview(ctx)
+  local ret = Snacks.picker.preview.file(ctx)
+  if fix_buf(ctx) then
+    -- 行を入れ替えた＝カーソル位置と一致の強調を貼り直す
+    ctx.preview:loc()
+  end
+  return ret
 end
 
 return M
