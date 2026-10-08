@@ -58,7 +58,7 @@ PC ごとに変わる値は**ホームの `~/.dotfiles.json` 1 枚**に集める
 ```json
 {
   "vault": "C:/Users/<you>/core",
-  "wezterm": { "font_size": 12.0 }
+  "wezterm": { "font_size": 12.0, "window_ratio": 0.8 }
 }
 ```
 
@@ -66,6 +66,7 @@ PC ごとに変わる値は**ホームの `~/.dotfiles.json` 1 枚**に集める
 |---|---|---|---|
 | `vault` | Neovim（`nvim/lua/config/machine.lua` → `nvim/lua/plugins/obsidian.lua`）・PowerShell（`powershell/profile.ps1`） | Obsidian vault の場所。`:Obsidian open`・`<leader>fo`・日次ノート／`$env:DOTFILES_VAULT` と `vault`（vault へ `cd` する関数） | obsidian.nvim を読み込まない・`vault` 関数も作らない |
 | `wezterm.font_size` | WezTerm（`wezterm/machine.lua` → `wezterm/wezterm.lua`） | 文字の大きさ（画面の違う PC で変える） | 12.0 |
+| `wezterm.window_ratio` | WezTerm（同上） | 起動時のウィンドウが画面を占める割合（0〜1・中央寄せ）。外れた値は既定に落ちる | 0.8 |
 
 - パスは `/` 区切りで書く（`\` を書くなら Lua・JSON ともエスケープが要る）
 - 読む側は 3 つとも「ファイルが無い・JSON が壊れている・キーが無い」を既定値で流す＝起動は止まらない
@@ -82,9 +83,9 @@ dotfiles-windows/
 ├── dotfiles.example.json    `~/.dotfiles.json` の雛形（PC ごとの値・上の「PC ごとの設定」）
 ├── README.md
 ├── wezterm/
-│   ├── wezterm.lua          本体（見た目・既定シェル・タブ）
+│   ├── wezterm.lua          本体（見た目・起動時の大きさ・既定シェル・タブ）
 │   ├── keybinds.lua         キーバインド
-│   └── machine.lua          `~/.dotfiles.json` を読む（font_size）
+│   └── machine.lua          `~/.dotfiles.json` を読む（font_size・window_ratio）
 ├── powershell/
 │   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
 ├── tools/

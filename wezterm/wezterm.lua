@@ -28,6 +28,38 @@ config.window_background_gradient = {
 config.window_decorations = "RESIZE"
 
 ----------------------------------------------------
+-- 起動時のウィンドウの大きさ
+----------------------------------------------------
+-- 既定の 80x24 はテキストエディタには狭いので、画面に対する割合で出す。
+-- 割合は `~/.dotfiles.json` の wezterm.window_ratio で PC ごとに変えられる
+local WINDOW_RATIO = 0.8
+local window_ratio = tonumber(machine.wezterm.window_ratio) or WINDOW_RATIO
+if window_ratio <= 0 or window_ratio > 1 then
+  -- 設定を壊さない（既定値で続ける）
+  wezterm.log_error("wezterm.window_ratio が 0〜1 の外＝既定 " .. WINDOW_RATIO .. " で続ける")
+  window_ratio = WINDOW_RATIO
+end
+
+-- gui-startup は起動時の最初のウィンドウだけ（2 枚目以降・新しいタブは WezTerm の既定どおり）
+wezterm.on("gui-startup", function(cmd)
+  local _, _, window = wezterm.mux.spawn_window(cmd or {})
+  local gui = window:gui_window()
+  if not gui then
+    return
+  end
+  -- マウスがある画面＝これからウィンドウが出る画面（x/y はマルチモニタでの左上・1 枚なら 0,0）
+  local screen = wezterm.gui.screens().active
+  local w = math.floor(screen.width * window_ratio)
+  local h = math.floor(screen.height * window_ratio)
+  gui:set_inner_size(w, h)
+  -- 中央寄せ
+  gui:set_position(
+    screen.x + math.floor((screen.width - w) / 2),
+    screen.y + math.floor((screen.height - h) / 2)
+  )
+end)
+
+----------------------------------------------------
 -- Shell（Windows）
 ----------------------------------------------------
 local function exists(path)

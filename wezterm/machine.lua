@@ -21,7 +21,7 @@ if f then
   end
 end
 
--- このリポで使うのは wezterm セクションだけ（他のキーは nvim 等が見る）
+-- このリポで使うのは wezterm セクションだけ（font_size・window_ratio／他のキーは nvim 等が見る）
 M.wezterm = type(M.config.wezterm) == "table" and M.config.wezterm or {}
 
 return M
