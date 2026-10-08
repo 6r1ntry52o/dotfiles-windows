@@ -120,10 +120,12 @@ dotfiles-windows/
     │   │   ├── autocmds.lua 自動コマンドの上書き
     │   │   ├── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
     │   │   ├── ime.lua      INSERT 以外では IME を OFF にする（下の「日本語入力」）
+    │   │   ├── winpath.lua  パスを Windows 側に渡す（<leader>fw・<leader>fy の中身）
     │   │   └── machine.lua  `~/.dotfiles.json` を読む（vault の場所・上の「PC ごとの設定」）
     │   └── plugins/         自分で足す・変えるプラグイン
     │       ├── encoding.lua 文字コードの表示と <leader>sJ
     │       ├── obsidian.lua Obsidian vault（:Obsidian open・<leader>fo から呼ばれる）
+    │       ├── snacks.lua   explorer の中でも <leader>fw・<leader>fy を効かせる
     │       └── clangd.lua   C/C++ の :CompileCommands（下の「C/C++」）
     ├── lazy-lock.json       プラグインの版の固定（lazy.nvim が書く）
     ├── lazyvim.json         LazyVim の状態（入れた extras・LazyVim が書く）
