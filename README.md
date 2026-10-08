@@ -36,6 +36,7 @@ PC ごとに変わる値（vault の場所など）はリポではなく `~/.dot
 6. `tools/ime/Ime.cs` を `tools/bin/ime.exe` にビルドする（Windows 同梱の `csc.exe`。SDK も Visual Studio も要らない）
    - 外から IME を切る小物。Obsidian の Vim モードが呼ぶ（下の「日本語入力」）。Neovim は同じことを Lua でやるのでこれは使わない
    - Google 日本語入力の設定（`google-ime/`）は `install.ps1` では戻さない＝新しい PC で `google-ime\Restore-GoogleIme.ps1` を手で流す（既存の設定を黙って上書きしないため）
+   - キーボードの Windows 側設定（`keychron/`）も `install.ps1` では触らない＝US 配列のキーボードを使う PC で `keychron\Set-UsPhysicalLayout.ps1` を**管理者で**手で流す（`HKLM` と再起動が要るため。下の「キーボード」）
 7. `~/.dotfiles.json`（この PC だけの値）を、無ければ `dotfiles.example.json` から作る（下の「PC ごとの設定」）
    - `vault` は `~/core`・`~/vault`・`~/Obsidian` に `.obsidian` があれば自動で入る。見つからなければ空で作るので手で書く
    - 既にあれば中身は触らない
@@ -99,6 +100,11 @@ dotfiles-windows/
 │   ├── settings.md                  既定と違う所の説明
 │   ├── Export-GoogleIme.ps1         今のPC → リポ
 │   └── Restore-GoogleIme.ps1        リポ → 新しいPC
+├── keychron/                   キーボード（下の「キーボード」）
+│   ├── keymap/B1-Pro-ANSI.json      Keychron Launcher で書き出したキーマップ（バックアップ）
+│   ├── settings.md                  2 層（キーボードの中 / Windows の中）の説明
+│   ├── Set-UsPhysicalLayout.ps1     Windows を US 101 配列扱いにする（要管理者・-Show / -Revert）
+│   └── Export-KeychronKeymap.ps1    今のPC → リポ（Launcher で書き出した後に流す）
 ├── wsl/
 │   ├── install.sh           WSL 側のセットアップ（install.ps1 から呼ばれる）
 │   ├── osc7.sh              bash 用（現在地の通知。末尾で aliases.sh を読む）
@@ -203,9 +209,34 @@ WezTerm（wezterm/*.lua）
 
 Mac 版との違い: `Cmd+T/W/C/V` → `Ctrl+Shift+T/W/C/V`、`Cmd+数字` → `Alt+数字`。
 
+## キーボード（Keychron B1 Pro ANSI）
+
+US（ANSI）配列のキーボードを日本語版 Windows で使う。**設定は 2 層に分かれていて、持ち運び方が違う**。
+
+| 層 | 何が決まる | 実体の置き場 | 持ち運び |
+|---|---|---|---|
+| キーボードの中 | キーマップ（Caps=Ctrl・F13/F14 ほか） | キーボードの不揮発メモリ。編集は [Keychron Launcher](https://launcher.keychron.com/)（WebHID・ブラウザ） | キーボードごと動く＝**PC を変えても付いてくる** |
+| Windows の中 | **物理配列の解釈**（US 101 か JIS 106 か） | `HKLM\...\i8042prt\Parameters`（全ユーザー共通） | **PC ごとに要設定** |
+
+新しい PC でやるのは下の層だけ（**管理者**の PowerShell・**再起動**が要る）:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\keychron\Set-UsPhysicalLayout.ps1
+```
+
+| ファイル | 何 |
+|---|---|
+| `keychron/Set-UsPhysicalLayout.ps1` | Windows を US 101 配列扱いにする。`-Show` は読むだけ（管理者権限は不要）・`-Revert` で日本語版の既定に戻す。変更前の値は `%LOCALAPPDATA%\dotfiles-windows\*.reg` に退避する |
+| `keychron/keymap/B1-Pro-ANSI.json` | キーマップのバックアップ。Launcher の読み込みで戻す（WebHID なので手作業） |
+| `keychron/settings.md` | 何をどう変えてあるかの説明（レイヤー構成・既定から変えた所・変更履歴） |
+| `keychron/Export-KeychronKeymap.ps1` | 今のPC → リポ（Launcher で書き出した後に流す） |
+
+これをやらないと記号の位置が JIS 配列として読まれて全部ずれる。入力言語（日本語）は変えない。
+キーの入れ替えは**キーボード側だけ**でやる＝`Scancode Map` も PowerToys Keyboard Manager も使わない（詳細 → `keychron/settings.md`）。
+
 ## 日本語入力（IME）
 
-IME は Google 日本語入力。**ON/OFF はトグルを使わず、F13 = OFF・F14 = ON**（キーボード側の QMK レイヤから送る。macOS の「英数 / かな」と同じ考え方＝押した方向が決まっているので、今どちらかを覚えていなくても外さない）。
+IME は Google 日本語入力。**ON/OFF はトグルを使わず、F13 = OFF・F14 = ON**（キーボード側のレイヤから送る＝上の「キーボード」。macOS の「英数 / かな」と同じ考え方＝押した方向が決まっているので、今どちらかを覚えていなくても外さない）。
 
 ### Neovim: INSERT 以外では必ず OFF
 
