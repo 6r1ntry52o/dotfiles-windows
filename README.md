@@ -22,22 +22,26 @@ PC ごとに変わる値（vault の場所など）はリポではなく `~/.dot
 1. winget で次を入れる（入っていれば何もしない。`-SkipPackages` で飛ばせる）
    - WezTerm・PowerShell 7・Neovim
    - LazyVim が使うもの: ripgrep（`rg`）・fd・fzf・lazygit・zig（C コンパイラ）・tree-sitter-cli（後ろ 2 つはパーサーのビルド用）
-2. `~/.wezterm.lua` に、このリポの `wezterm/wezterm.lua` を読み込む 5 行のスタブを書く
+2. フォント HackGen Console NF（Nerd Font 入り）を入れる（入っていれば何もしない。`-SkipPackages` で飛ばせる）
+   - winget に無いので GitHub の release から取る。版は `install.ps1` の `$fontVersion` で固定し、zip の SHA256 も照合する（release の asset は後から変わらない）
+   - 入れるのは Regular と Bold。置き場は `%LOCALAPPDATA%\Microsoft\Windows\Fonts` と `HKCU`＝管理者権限は不要で、入れた直後から使える
+   - 取れなくても `install.ps1` は止まらない（警告だけ）。その PC では WezTerm が NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる
+3. `~/.wezterm.lua` に、このリポの `wezterm/wezterm.lua` を読み込む 5 行のスタブを書く
    - 既存の `~/.wezterm.lua` が自分の物なら `.bak-日時` に退避してから上書き
    - シンボリックリンクではないので管理者権限は不要。clone 先はどこでもよい（移動したら再実行）
-3. PowerShell 7 の `$PROFILE` に、このリポの `powershell/profile.ps1` を読み込む 1 行を足す（既存の中身はそのまま）
+4. PowerShell 7 の `$PROFILE` に、このリポの `powershell/profile.ps1` を読み込む 1 行を足す（既存の中身はそのまま）
    - Windows PowerShell 5.1 は、実行ポリシーがスクリプトを許可している時だけ同じ 1 行を足す（既定の Restricted では飛ばす）
-4. WSL があれば、各ディストリ（`docker-desktop` 以外）の `~/.bashrc` に `wsl/osc7.sh` を読み込む 1 行を足す
+5. WSL があれば、各ディストリ（`docker-desktop` 以外）の `~/.bashrc` に `wsl/osc7.sh` を読み込む 1 行を足す
    - zsh が入っているディストリでは `~/.zshrc` にも `wsl/osc7.zsh` を読み込む 1 行を足す（zsh 自体は入れない。`sudo apt install zsh` → `chsh -s /usr/bin/zsh`）
-5. `%LOCALAPPDATA%\nvim` を、このリポの `nvim/` を指す junction にする
+6. `%LOCALAPPDATA%\nvim` を、このリポの `nvim/` を指す junction にする
    - 既存の `%LOCALAPPDATA%\nvim` が実フォルダなら `nvim.bak-日時` に改名して退避する
    - junction なので管理者権限は不要。clone 先を移動したら再実行（古い junction は張り替える）
    - WezTerm と違ってスタブにしないのは、lazy.nvim が `lazy-lock.json` を設定フォルダへ書くため（フォルダごとリポに置かないと版を追跡できない）
-6. `tools/ime/Ime.cs` を `tools/bin/ime.exe` にビルドする（Windows 同梱の `csc.exe`。SDK も Visual Studio も要らない）
+7. `tools/ime/Ime.cs` を `tools/bin/ime.exe` にビルドする（Windows 同梱の `csc.exe`。SDK も Visual Studio も要らない）
    - 外から IME を切る小物。Obsidian の Vim モードが呼ぶ（下の「日本語入力」）。Neovim は同じことを Lua でやるのでこれは使わない
    - Google 日本語入力の設定（`google-ime/`）は `install.ps1` では戻さない＝新しい PC で `google-ime\Restore-GoogleIme.ps1` を手で流す（既存の設定を黙って上書きしないため）
    - キーボードの Windows 側設定（`keychron/`）も `install.ps1` では触らない＝US 配列のキーボードを使う PC で `keychron\Set-UsPhysicalLayout.ps1` を**管理者で**手で流す（`HKLM` と再起動が要るため。下の「キーボード」）
-7. `~/.dotfiles.json`（この PC だけの値）を、無ければ `dotfiles.example.json` から作る（下の「PC ごとの設定」）
+8. `~/.dotfiles.json`（この PC だけの値）を、無ければ `dotfiles.example.json` から作る（下の「PC ごとの設定」）
    - `vault` は `~/core`・`~/vault`・`~/Obsidian` に `.obsidian` があれば自動で入る。見つからなければ空で作るので手で書く
    - 既にあれば中身は触らない
 
@@ -180,7 +184,7 @@ WezTerm（wezterm/*.lua）
   - 引き継ぎはシェルがプロンプトのたびに現在地を WezTerm へ通知（OSC 7）して実現している。対応は PowerShell 7 と WSL の bash・zsh。Git Bash と、プロファイルを読まない PowerShell 5.1 は常にホームで開く
 - 既定シェル: PowerShell 7（無ければ Windows PowerShell 5.1 に落ちる）。ランチャーに 5.1・Git Bash・WSL も出る
 - WSL: ディストリは自動検出（`docker-desktop` 以外の先頭を `Ctrl+Shift+U` に割り当て）。WSL のタブ内で分割・新規タブをすると同じ WSL で開く。WSL 自体の導入は `wsl --install`（このリポでは入れない）
-- フォント: HackGen Console NF（https://github.com/yuru7/HackGen の `HackGen_NF_*.zip` ＝ Nerd Font 入り・手動で入れる。未導入の PC では NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる）
+- フォント: HackGen Console NF（https://github.com/yuru7/HackGen の `HackGen_NF_*.zip` ＝ Nerd Font 入り・`install.ps1` が入れる。入っていない PC では NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる）
 - タブ: 丸みのない四角形（retro 型）。表示はプログラム名だけで 16 文字まで。アクティブ＝`#82aaff`（LazyVim のタイトルと同じ青・文字は濃色）。×ボタンは無い（閉じるのは `Ctrl+Shift+W`）
 - タイトルバーなし: 終了は `Alt+F4`、移動はタブバーの空き部分をドラッグ
 
