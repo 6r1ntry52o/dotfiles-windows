@@ -171,7 +171,7 @@ WezTerm（wezterm/*.lua）
 
 - Neovim: LazyVim（https://www.lazyvim.org ・`nvim/` は LazyVim/starter が元。`nvim/LICENSE` はその Apache-2.0）。`<leader>` はスペース。押して待つとキー一覧が出る
   - プラグイン本体とパーサーは `%LOCALAPPDATA%\nvim-data` に入る（リポの外・消しても次の起動で入り直す）
-  - アイコンは WezTerm 同梱の Nerd Font Symbols で出る。他のターミナルで開くなら Nerd Font を入れる
+  - アイコンは本文のフォント（HackGen Console NF）の Nerd Font 字形で出る。NF なしのフォントに落ちた時は WezTerm 同梱の Nerd Font Symbols が代わりに描く。他のターミナルで開くなら Nerd Font を入れる
   - WSL 側の Neovim にはこの設定を繋がない（Windows の Neovim だけ）
 
 - エディタ: `vi`・`vim` は Neovim、`view` は `nvim -R`（読み取り専用）で開く。Neovim が入っている環境だけ有効（Windows は `install.ps1` が入れる。WSL は `sudo apt install neovim`・このリポでは入れない）。対応は PowerShell と WSL の bash・zsh。Git Bash は対象外
@@ -180,7 +180,7 @@ WezTerm（wezterm/*.lua）
   - 引き継ぎはシェルがプロンプトのたびに現在地を WezTerm へ通知（OSC 7）して実現している。対応は PowerShell 7 と WSL の bash・zsh。Git Bash と、プロファイルを読まない PowerShell 5.1 は常にホームで開く
 - 既定シェル: PowerShell 7（無ければ Windows PowerShell 5.1 に落ちる）。ランチャーに 5.1・Git Bash・WSL も出る
 - WSL: ディストリは自動検出（`docker-desktop` 以外の先頭を `Ctrl+Shift+U` に割り当て）。WSL のタブ内で分割・新規タブをすると同じ WSL で開く。WSL 自体の導入は `wsl --install`（このリポでは入れない）
-- フォント: HackGen Console（https://github.com/yuru7/HackGen ・手動で入れる。未導入の PC では同梱の JetBrains Mono に落ちる）
+- フォント: HackGen Console NF（https://github.com/yuru7/HackGen の `HackGen_NF_*.zip` ＝ Nerd Font 入り・手動で入れる。未導入の PC では NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる）
 - タブ: 丸みのない四角形（retro 型）。表示はプログラム名だけで 16 文字まで。アクティブ＝`#82aaff`（LazyVim のタイトルと同じ青・文字は濃色）。×ボタンは無い（閉じるのは `Ctrl+Shift+W`）
 - タイトルバーなし: 終了は `Alt+F4`、移動はタブバーの空き部分をドラッグ
 
