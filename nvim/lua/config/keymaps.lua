@@ -3,6 +3,29 @@
 -- Add any additional keymaps here
 
 ----------------------------------------------------
+-- ターミナルは下ではなく右のペインに開く
+----------------------------------------------------
+-- LazyVim 既定の同じキーを上書きする（既定は position = "bottom"）。
+-- snacks の opts.terminal.win に書かないのは、そこは Snacks.lazygit など cmd 付きの
+-- ターミナル（フロート）にも効いてしまうため。シェルを開くキーだけに絞る。
+-- <c-/> は <leader>ft と同じターミナルを掴む（id は cmd・cwd・count で決まり、位置は
+-- 最初に開いた時のものが残る）ので、揃えておかないと開いたキー次第で位置が変わる。
+local term_win = { position = "right" }
+
+vim.keymap.set("n", "<leader>fT", function()
+  Snacks.terminal(nil, { win = term_win })
+end, { desc = "Terminal (cwd)" })
+vim.keymap.set("n", "<leader>ft", function()
+  Snacks.terminal(nil, { cwd = LazyVim.root(), win = term_win })
+end, { desc = "Terminal (Root Dir)" })
+vim.keymap.set({ "n", "t" }, "<c-/>", function()
+  Snacks.terminal.focus(nil, { cwd = LazyVim.root(), win = term_win })
+end, { desc = "Terminal (Root Dir)" })
+vim.keymap.set({ "n", "t" }, "<c-_>", function()
+  Snacks.terminal.focus(nil, { cwd = LazyVim.root(), win = term_win })
+end, { desc = "which_key_ignore" })
+
+----------------------------------------------------
 -- 今のファイルを Windows 側に渡す（開く・パスを取る）
 ----------------------------------------------------
 -- ここはカーソルがファイルの中に居る時の口。snacks explorer でカーソルが当たって
