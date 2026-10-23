@@ -18,7 +18,8 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | # | 内容 |
 |---|---|
 | 1 | winget で WezTerm・Neovim・ripgrep・fd・fzf・lazygit・zig・tree-sitter-cli を入れる。PowerShell 7 は MSI 版（`C:\Program Files\PowerShell\7`）があるかを確かめる |
-| 2 | フォント HackGen Console NF を入れる（1 と 2 は `-SkipPackages` で飛ばせる） |
+| 2 | フォント HackGen Console NF を入れる |
+| 2b | C/C++ 用に lazymsbuild と msbuild-extractor-sample を入れる（版は `tools/` の各スクリプトで固定し、SHA256 を確かめる。lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` に置いてユーザーの PATH に足す。1〜2b は `-SkipPackages` で飛ばせる） |
 | 3 | `~/.wezterm.lua` に `wezterm/wezterm.lua` を読むスタブを書く（既存は `.bak-日時` に退避） |
 | 4 | PowerShell の `$PROFILE` に `powershell/profile.ps1` を読む 1 行を足す。5.1 の実行ポリシーが未設定なら CurrentUser を RemoteSigned にする |
 | 5 | WSL の `~/.bashrc`・`~/.zshrc` に `wsl/osc7.*` を読む 1 行を足す（`docker-desktop` 以外） |
@@ -117,6 +118,7 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 | `<leader>fy` | 今のファイルの絶対パスをコピー |
 | `<leader>sJ` | UTF-8 と CP932 を 1 回で検索（下の「文字コード」） |
 | `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
+| `<leader>mb` / `<leader>me` | lazymsbuild（MSBuild の TUI）を開く・隠す / 最後のビルドのエラーを quickfix へ |
 | `:ImeState` | IME の状態を出す（0=OFF・1=ON） |
 
 `<leader>fo`・`fw`・`fy` は snacks explorer の中でも、カーソル下のファイルに効く。
@@ -188,17 +190,22 @@ CP932 と UTF-8 が混ざったツリーを、そのまま読み書きする。
 
 ### C/C++（Visual Studio のソリューション）
 
-LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を自分で見つける。
+LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を自分で見つける。ソリューションの読ませ方は [lazymsbuild](https://github.com/6r1ntry52o/lazymsbuild)（`install.ps1` が入れる。設定は `nvim/lua/plugins/lazymsbuild.lua`＝lazymsbuild の `docs/editors/lazyvim.md` と同じ中身）。
 
 | 困る場面 | 手段 |
 |---|---|
 | 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`） |
 | ソースとヘッダを行き来したい | `<leader>ch` |
-| 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | `:CompileCommands` |
-| 抽出ツールが入っていない | `pwsh -File tools\Install-MsbuildExtractor.ps1` |
+| 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
+| ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
+| DB が最新か確かめたい | `lazymsbuild check`（全体の点検は `lazymsbuild doctor`） |
 | LSP が動いているか確かめたい | `<leader>cl` |
 
-`:CompileCommands` は、今のファイルの上にある `.sln`（無ければ `.vcxproj`）から `<ルート>\build\compile_commands.json` を作る。ビルドは走らない。構成は `.sln` の先頭のもの（リポに `msbuild-extractor.json` があればそれに従う）。
+`:CompileCommands` は `lazymsbuild sync`。ビルドせずに、リポのルートの `compile_commands.json` を作り直す。以後は lazymsbuild でビルドするたびに DB が追従する。
+
+- 前の `:CompileCommands` が作った `<.sln のある所>\build\compile_commands.json` が残っていると、C/C++ を開いた時に消すか聞かれる（DB が 2 つあると clangd が古い方を読むことがある）
+- lazymsbuild が PATH に無い PC では、`:CompileCommands` は前のまま（抽出ツールを直接呼んで `<ルート>\build\compile_commands.json` を作る。抽出ツールの導入は `pwsh -File tools\Install-MsbuildExtractor.ps1`）
+- lazymsbuild の版を上げる時は `tools\Install-Lazymsbuild.ps1` の `-Version` と `-Sha256` を直して `install.ps1` を流す（自動更新はしない）
 
 ## 構成
 
@@ -224,10 +231,10 @@ dotfiles-windows/
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
 │   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）
-│   ├── lua/plugins/         encoding・obsidian・snacks・clangd・colorscheme
+│   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
 │   ├── lazy-lock.json       プラグインの版の固定
 │   └── lazyvim.json         入れた extras
-├── tools/                   Survey-Encoding.ps1・Install-MsbuildExtractor.ps1・
+├── tools/                   Survey-Encoding.ps1・Install-Lazymsbuild.ps1・Install-MsbuildExtractor.ps1・
 │                            ime/Ime.cs（→ bin/ime.exe・git 管理外）
 ├── google-ime/              Google 日本語入力の設定と Export / Restore
 └── keychron/                キーマップのバックアップと Windows 側の設定スクリプト
@@ -247,4 +254,5 @@ dotfiles-windows/
 - `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` を消す
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
 - Obsidian の Vim IM Select を無効化する
+- lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
 - `~/.dotfiles.json` を消す

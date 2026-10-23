@@ -132,6 +132,21 @@ if (-not $SkipPackages) {
     }
 }
 
+# 2b. C/C++: lazymsbuild, a TUI for MSBuild that keeps compile_commands.json complete for clangd
+#     (Neovim's :CompileCommands runs its sync), and msbuild-extractor-sample, which that sync
+#     uses. Both are pinned GitHub releases, checked by SHA256 and put in the user profile, so no
+#     admin rights are needed; neither updates itself. To update one, bump -Version and -Sha256
+#     in its script under tools\.
+if (-not $SkipPackages) {
+    foreach ($script in 'Install-Lazymsbuild.ps1', 'Install-MsbuildExtractor.ps1') {
+        try {
+            & (Join-Path $repo "tools\$script")
+        } catch {
+            Write-Warning "tools\$script failed: $($_.Exception.Message)"
+        }
+    }
+}
+
 # 3. WezTerm: write a stub at ~/.wezterm.lua that loads the config from this clone.
 #    A stub (not a symlink) needs no admin rights and works wherever the repo is cloned.
 $wezDir = (Join-Path $repo 'wezterm') -replace '\\', '/'
