@@ -2,63 +2,41 @@
 
 Windows 用の設定置き場。WezTerm・PowerShell・WSL のシェル・Neovim（LazyVim）。Mac 用は別リポ [`dotfiles`](https://github.com/6r1ntry52o/dotfiles)。
 
-## 新しい PC に入れる
+## セットアップ
 
-**clone 先はどこでもよい**（リポの中に clone 場所を書いていない。`install.ps1` は自分の置き場所を基準に動く）。
+clone 先はどこでもよい。
 
 ```powershell
-cd <好きな場所>
 git clone https://github.com/6r1ntry52o/dotfiles-windows.git
 powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 ```
 
-後から clone 先を移したら `install.ps1` を流し直す（`~/.wezterm.lua` のスタブと `%LOCALAPPDATA%\nvim` の junction が新しい場所を向く）。
-PC ごとに変わる値（vault の場所など）はリポではなく `~/.dotfiles.json` に入る（下の「PC ごとの設定」）。
+終わったら新しいタブを開き、`nvim` を一度起動して待つ（プラグインとパーサーが入る。確認は `:LazyHealth`）。
 
-終わったら新しいタブを開き、`nvim` を一度起動して待つ（LazyVim が `nvim/lazy-lock.json` の版でプラグインを入れる。パーサーのビルドもここで走る）。確認は `:LazyHealth`。
+`install.ps1` は何度流してもよい。clone 先を移したら流し直す。やること:
 
-`install.ps1` がすること（何度流してもよい）:
+| # | 内容 |
+|---|---|
+| 1 | winget で WezTerm・PowerShell 7・Neovim・ripgrep・fd・fzf・lazygit・zig・tree-sitter-cli を入れる |
+| 2 | フォント HackGen Console NF を入れる（1 と 2 は `-SkipPackages` で飛ばせる） |
+| 3 | `~/.wezterm.lua` に `wezterm/wezterm.lua` を読むスタブを書く（既存は `.bak-日時` に退避） |
+| 4 | PowerShell の `$PROFILE` に `powershell/profile.ps1` を読む 1 行を足す |
+| 5 | WSL の `~/.bashrc`・`~/.zshrc` に `wsl/osc7.*` を読む 1 行を足す（`docker-desktop` 以外） |
+| 6 | `%LOCALAPPDATA%\nvim` を `nvim/` への junction にする（既存は `nvim.bak-日時` に退避） |
+| 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用） |
+| 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
 
-1. winget で次を入れる（入っていれば何もしない。`-SkipPackages` で飛ばせる）
-   - WezTerm・PowerShell 7・Neovim
-   - LazyVim が使うもの: ripgrep（`rg`）・fd・fzf・lazygit・zig（C コンパイラ）・tree-sitter-cli（後ろ 2 つはパーサーのビルド用）
-2. フォント HackGen Console NF（Nerd Font 入り）を入れる（入っていれば何もしない。`-SkipPackages` で飛ばせる）
-   - winget に無いので GitHub の release から取る。版は `install.ps1` の `$fontVersion` で固定し、zip の SHA256 も照合する（release の asset は後から変わらない）
-   - 入れるのは Regular と Bold。置き場は `%LOCALAPPDATA%\Microsoft\Windows\Fonts` と `HKCU`＝管理者権限は不要で、入れた直後から使える
-   - 取れなくても `install.ps1` は止まらない（警告だけ）。その PC では WezTerm が NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる
-3. `~/.wezterm.lua` に、このリポの `wezterm/wezterm.lua` を読み込む 5 行のスタブを書く
-   - 既存の `~/.wezterm.lua` が自分の物なら `.bak-日時` に退避してから上書き
-   - シンボリックリンクではないので管理者権限は不要。clone 先はどこでもよい（移動したら再実行）
-4. PowerShell 7 の `$PROFILE` に、このリポの `powershell/profile.ps1` を読み込む 1 行を足す（既存の中身はそのまま）
-   - Windows PowerShell 5.1 は、実行ポリシーがスクリプトを許可している時だけ同じ 1 行を足す（既定の Restricted では飛ばす）
-5. WSL があれば、各ディストリ（`docker-desktop` 以外）の `~/.bashrc` に `wsl/osc7.sh` を読み込む 1 行を足す
-   - zsh が入っているディストリでは `~/.zshrc` にも `wsl/osc7.zsh` を読み込む 1 行を足す（zsh 自体は入れない。`sudo apt install zsh` → `chsh -s /usr/bin/zsh`）
-6. `%LOCALAPPDATA%\nvim` を、このリポの `nvim/` を指す junction にする
-   - 既存の `%LOCALAPPDATA%\nvim` が実フォルダなら `nvim.bak-日時` に改名して退避する
-   - junction なので管理者権限は不要。clone 先を移動したら再実行（古い junction は張り替える）
-   - WezTerm と違ってスタブにしないのは、lazy.nvim が `lazy-lock.json` を設定フォルダへ書くため（フォルダごとリポに置かないと版を追跡できない）
-7. `tools/ime/Ime.cs` を `tools/bin/ime.exe` にビルドする（Windows 同梱の `csc.exe`。SDK も Visual Studio も要らない）
-   - 外から IME を切る小物。Obsidian の Vim モードが呼ぶ（下の「日本語入力」）。Neovim は同じことを Lua でやるのでこれは使わない
-   - Google 日本語入力の設定（`google-ime/`）は `install.ps1` では戻さない＝新しい PC で `google-ime\Restore-GoogleIme.ps1` を手で流す（既存の設定を黙って上書きしないため）
-   - キーボードの Windows 側設定（`keychron/`）も `install.ps1` では触らない＝US 配列のキーボードを使う PC で `keychron\Set-UsPhysicalLayout.ps1` を**管理者で**手で流す（`HKLM` と再起動が要るため。下の「キーボード」）
-8. `~/.dotfiles.json`（この PC だけの値）を、無ければ `dotfiles.example.json` から作る（下の「PC ごとの設定」）
-   - `vault` は `~/core`・`~/vault`・`~/Obsidian` に `.obsidian` があれば自動で入る。見つからなければ空で作るので手で書く
-   - 既にあれば中身は触らない
+管理者権限は要らない。次の 3 つは `install.ps1` がやらないので、要る PC だけ手で行う。
 
-## 設定を変える・同期する
-
-- 編集するのは `wezterm/*.lua`。保存すると WezTerm が自動で再読み込みする（手動は `Ctrl+Shift+R`）
-- 他の PC へは `git push` → 向こうで `git pull` だけ
-- Neovim は `nvim/lua/config/*.lua`（オプション・キー）と `nvim/lua/plugins/*.lua`（プラグイン）を編集する。`%LOCALAPPDATA%\nvim` から開いても同じファイル
-  - プラグインを更新（`:Lazy update`）すると `nvim/lazy-lock.json` が変わるので、それも commit する
-  - 他の PC では `git pull` のあと `:Lazy restore`（lock の版に揃える）
-  - `:LazyExtras` で足した機能は `nvim/lazyvim.json` に記録される（これも commit する）
+| 何 | 手順 |
+|---|---|
+| Google 日本語入力の設定 | `google-ime\Restore-GoogleIme.ps1` を流す（今の設定は `.bak-日時` に退避） |
+| US 配列キーボード | **管理者**で `keychron\Set-UsPhysicalLayout.ps1` を流して再起動（`-Show` で確認・`-Revert` で戻す） |
+| Obsidian の IME 連携 | 下の「Obsidian」 |
 
 ## PC ごとの設定（`~/.dotfiles.json`）
 
-PC ごとに変わる値は**ホームの `~/.dotfiles.json` 1 枚**に集める。リポの中には PC 固有のパスを書かない
-＝どの PC のどこに clone しても同じ設定が動く（公開リポに個人のパスも載らない）。
-雛形＝`dotfiles.example.json`・無ければ `install.ps1` が作る。
+PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。リポには PC 固有のパスを書かない。
 
 ```json
 {
@@ -67,136 +45,40 @@ PC ごとに変わる値は**ホームの `~/.dotfiles.json` 1 枚**に集める
 }
 ```
 
-| キー | 読む側 | 何に使う | 無いとき |
-|---|---|---|---|
-| `vault` | Neovim（`nvim/lua/config/machine.lua` → `nvim/lua/plugins/obsidian.lua`）・PowerShell（`powershell/profile.ps1`） | Obsidian vault の場所。`:Obsidian open`・`<leader>fo`・日次ノート／`$env:DOTFILES_VAULT` と `vault`（vault へ `cd` する関数） | obsidian.nvim を読み込まない・`vault` 関数も作らない |
-| `wezterm.font_size` | WezTerm（`wezterm/machine.lua` → `wezterm/wezterm.lua`） | 文字の大きさ（画面の違う PC で変える） | 12.0 |
-| `wezterm.window_ratio` | WezTerm（同上） | 起動時のウィンドウが画面を占める割合（0〜1・中央寄せ）。外れた値は既定に落ちる | 0.8 |
+| キー | 何に使う | 無いとき |
+|---|---|---|
+| `vault` | Obsidian vault の場所（Neovim と PowerShell が読む） | Obsidian 関連の機能を読み込まない |
+| `wezterm.font_size` | 文字の大きさ | 12.0 |
+| `wezterm.window_ratio` | 起動時のウィンドウが画面を占める割合（0〜1） | 0.8 |
 
-- パスは `/` 区切りで書く（`\` を書くなら Lua・JSON ともエスケープが要る）
-- 読む側は 3 つとも「ファイルが無い・JSON が壊れている・キーが無い」を既定値で流す＝起動は止まらない
-- WSL のシェルからは読んでいない（今は参照する値が無い。要るようになったら `wsl/aliases.sh` に足す）
-- この 1 枚は PC 固有なのでリポには入らない。新しい PC では `install.ps1` が作る（＝手で持ち回らない）
+### 別の PC で使う
 
-## 構成
+このファイルは他の PC からコピーしない（中身がその PC のパスなので）。`install.ps1` が PC ごとに作る。
 
-### リポの中身
+1. その PC の Obsidian で vault を一度開く（置き場所はどこでもよい）
+2. `install.ps1` を流す。`created ~/.dotfiles.json (vault = ...)` と出れば完了
+3. nvim と PowerShell を開き直す
 
-```
-dotfiles-windows/
-├── install.ps1              セットアップ（winget で導入し、下の各設定を PC へ繋ぐ）
-├── dotfiles.example.json    `~/.dotfiles.json` の雛形（PC ごとの値・上の「PC ごとの設定」）
-├── README.md
-├── wezterm/
-│   ├── wezterm.lua          本体（見た目・起動時の大きさ・既定シェル・タブ）
-│   ├── keybinds.lua         キーバインド
-│   └── machine.lua          `~/.dotfiles.json` を読む（font_size・window_ratio）
-├── powershell/
-│   └── profile.ps1          PowerShell のプロファイル（現在地の通知・vi 系のエイリアス）
-├── tools/
-│   ├── Survey-Encoding.ps1          文字コードの棚卸し（読み取り専用・集計だけ画面に出す）
-│   ├── Install-MsbuildExtractor.ps1 compile_commands.json を作る抽出ツールを入れる（下の「C/C++」）
-│   ├── ime/Ime.cs                   外から IME を切る小物のソース（install.ps1 がビルド）
-│   └── bin/                         ビルド結果（git 管理外・ime.exe）
-├── google-ime/                 Google 日本語入力の設定（下の「日本語入力」）
-│   ├── config1.db                   設定の実体（復元に使う）
-│   ├── keymap.txt                   カスタムキーマップ（F13=OFF・F14=ON）
-│   ├── settings.md                  既定と違う所の説明
-│   ├── Export-GoogleIme.ps1         今のPC → リポ
-│   └── Restore-GoogleIme.ps1        リポ → 新しいPC
-├── keychron/                   キーボード（下の「キーボード」）
-│   ├── keymap/B1-Pro-ANSI.json      Keychron Launcher で書き出したキーマップ（バックアップ）
-│   ├── settings.md                  2 層（キーボードの中 / Windows の中）の説明
-│   ├── Set-UsPhysicalLayout.ps1     Windows を US 101 配列扱いにする（要管理者・-Show / -Revert）
-│   └── Export-KeychronKeymap.ps1    今のPC → リポ（Launcher で書き出した後に流す）
-├── wsl/
-│   ├── install.sh           WSL 側のセットアップ（install.ps1 から呼ばれる）
-│   ├── osc7.sh              bash 用（現在地の通知。末尾で aliases.sh を読む）
-│   ├── osc7.zsh             zsh 用（現在地の通知。末尾で aliases.sh を読む）
-│   └── aliases.sh           bash・zsh 共通のエイリアス
-└── nvim/                    Neovim（LazyVim/starter が元）
-    ├── init.lua             入口（lua/config/lazy.lua を読むだけ）
-    ├── lua/
-    │   ├── config/
-    │   │   ├── lazy.lua     起動（lazy.nvim と LazyVim を読み込む）
-    │   │   ├── options.lua  オプションの上書き
-    │   │   ├── keymaps.lua  キーの上書き
-    │   │   ├── autocmds.lua 自動コマンドの上書き
-    │   │   ├── encoding.lua 混在ツリーを検索するための小物（下の「文字コード」）
-    │   │   ├── ime.lua      INSERT 以外では IME を OFF にする（下の「日本語入力」）
-    │   │   ├── winpath.lua  パスを Windows 側に渡す（<leader>fw・<leader>fy の中身）
-    │   │   └── machine.lua  `~/.dotfiles.json` を読む（vault の場所・上の「PC ごとの設定」）
-    │   └── plugins/         自分で足す・変えるプラグイン
-    │       ├── encoding.lua 文字コードの表示と <leader>sJ
-    │       ├── obsidian.lua Obsidian vault（:Obsidian open・<leader>fo から呼ばれる）
-    │       ├── snacks.lua   explorer の中でも <leader>fw・<leader>fy を効かせる
-    │       └── clangd.lua   C/C++ の :CompileCommands（下の「C/C++」）
-    ├── lazy-lock.json       プラグインの版の固定（lazy.nvim が書く）
-    ├── lazyvim.json         LazyVim の状態（入れた extras・LazyVim が書く）
-    ├── stylua.toml          Lua の整形設定
-    ├── .neoconf.json        neoconf の設定
-    └── LICENSE              LazyVim/starter の Apache-2.0
-```
+`vault` は Obsidian が覚えている vault から選ぶ（今開いているもの → 最後に開いたもの）。Obsidian を起動したことのない PC では `~/core`・`~/vault`・`~/Obsidian` を見る。
 
-### PC 側とのつながり
+手で書くのは次の場合だけ。`"vault"` の 1 行を `/` 区切りのパスに直す。
 
-`install.ps1` が作るのは右向きの矢印だけ。設定の実体はすべてリポにある。
+- 検出できなかった（空で作られる）・違う vault が入った
+- その PC にすでに `~/.dotfiles.json` がある（`install.ps1` は既存のファイルを触らない）
 
-```
-PC 側（install.ps1 が作る・書き足す）                  リポ側（実体）
-─────────────────────────────────────────────────────────────────────────
-Windows
-├── ~/.dotfiles.json                  ◀──読まれる── この PC だけの値（nvim・WezTerm・profile.ps1 の 3 つが読む）
-├── ~/.wezterm.lua                    ──読み込む──▶ wezterm/wezterm.lua
-│   （5 行のスタブ）                                 └─▶ wezterm/keybinds.lua
-├── ~/Documents/PowerShell/
-│   └── Microsoft.PowerShell_profile.ps1
-│       （1 行を追記）                ──読み込む──▶ powershell/profile.ps1
-├── %LOCALAPPDATA%/nvim               ──junction──▶ nvim/
-└── %LOCALAPPDATA%/nvim-data          リポの外（プラグイン本体・パーサー。消しても入り直す）
+## 使い方
 
-WSL（docker-desktop 以外の各ディストリ）
-├── ~/.bashrc （1 行を追記）          ──読み込む──▶ wsl/osc7.sh  ─┐
-└── ~/.zshrc  （1 行を追記・zsh 有時）──読み込む──▶ wsl/osc7.zsh ─┴─▶ wsl/aliases.sh
-```
+### WezTerm
 
-### 動かしたときの重なり
-
-```
-WezTerm（wezterm/*.lua）
-├── タブ / ペイン
-│   ├── PowerShell 7（既定・powershell/profile.ps1）
-│   │   └── vi / vim / view ─▶ Neovim + LazyVim（nvim/）
-│   ├── WSL の bash・zsh（Ctrl+Shift+U・wsl/*.sh）
-│   │   └── vi / vim / view ─▶ WSL 側の Neovim（入れていれば。nvim/ の設定は繋がない）
-│   └── Git Bash・PowerShell 5.1（Ctrl+Shift+L のランチャーから）
-└── Leader = Ctrl+Q（WezTerm のキー）／Neovim の <leader> = Space
-```
-
-- Neovim: LazyVim（https://www.lazyvim.org ・`nvim/` は LazyVim/starter が元。`nvim/LICENSE` はその Apache-2.0）。`<leader>` はスペース。押して待つとキー一覧が出る
-  - プラグイン本体とパーサーは `%LOCALAPPDATA%\nvim-data` に入る（リポの外・消しても次の起動で入り直す）
-  - アイコンは本文のフォント（HackGen Console NF）の Nerd Font 字形で出る。NF なしのフォントに落ちた時は WezTerm 同梱の Nerd Font Symbols が代わりに描く。他のターミナルで開くなら Nerd Font を入れる
-  - WSL 側の Neovim にはこの設定を繋がない（Windows の Neovim だけ）
-
-- エディタ: `vi`・`vim` は Neovim、`view` は `nvim -R`（読み取り専用）で開く。Neovim が入っている環境だけ有効（Windows は `install.ps1` が入れる。WSL は `sudo apt install neovim`・このリポでは入れない）。対応は PowerShell と WSL の bash・zsh。Git Bash は対象外
-
-- 作業場: 起動時は Windows のホーム、`Ctrl+Shift+U` の WSL は Linux のホーム。新規タブ・分割は今いるペインの場所を引き継ぐ
-  - 引き継ぎはシェルがプロンプトのたびに現在地を WezTerm へ通知（OSC 7）して実現している。対応は PowerShell 7 と WSL の bash・zsh。Git Bash と、プロファイルを読まない PowerShell 5.1 は常にホームで開く
-- 既定シェル: PowerShell 7（無ければ Windows PowerShell 5.1 に落ちる）。ランチャーに 5.1・Git Bash・WSL も出る
-- WSL: ディストリは自動検出（`docker-desktop` 以外の先頭を `Ctrl+Shift+U` に割り当て）。WSL のタブ内で分割・新規タブをすると同じ WSL で開く。WSL 自体の導入は `wsl --install`（このリポでは入れない）
-- フォント: HackGen Console NF（https://github.com/yuru7/HackGen の `HackGen_NF_*.zip` ＝ Nerd Font 入り・`install.ps1` が入れる。入っていない PC では NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる）
-- タブ: 丸みのない四角形（retro 型）。表示はプログラム名だけで 16 文字まで。アクティブ＝`#82aaff`（LazyVim のタイトルと同じ青・文字は濃色）。×ボタンは無い（閉じるのは `Ctrl+Shift+W`）
-- タイトルバーなし: 終了は `Alt+F4`、移動はタブバーの空き部分をドラッグ
-
-## キーバインド
+既定シェルは PowerShell 7。新規タブ・分割は今いるペインの場所を引き継ぐ（PowerShell 7 と WSL の bash・zsh）。タイトルバーは無い＝終了は `Alt+F4`、移動はタブバーの空きをドラッグ。
 
 既定のキーは無効化してある。Leader = `Ctrl+Q`（2 秒以内に次のキー）。
 
 | キー | 動作 |
 |---|---|
 | `Ctrl+Shift+T` / `Ctrl+Shift+W` | タブを開く / 閉じる |
-| `Ctrl+Shift+U` | WSL を新しいタブで開く（Linux のホームで始まる） |
-| `Ctrl+Shift+L` | ランチャー（PowerShell・Git Bash・WSL から選んで開く） |
+| `Ctrl+Shift+U` | WSL を新しいタブで開く |
+| `Ctrl+Shift+L` | ランチャー（PowerShell・Git Bash・WSL から選ぶ） |
 | `Ctrl+Tab` / `Ctrl+Shift+Tab` | 次 / 前のタブ |
 | `Alt+1`〜`8` / `Alt+9` | N 番目 / 最後のタブ |
 | `Leader {` / `Leader }` | タブを左 / 右へ移動 |
@@ -208,139 +90,160 @@ WezTerm（wezterm/*.lua）
 | `Leader w` / `Leader W` / `Leader $` | ワークスペース切替 / 新規 / 改名 |
 | `Ctrl+Shift+C` / `Ctrl+Shift+V` | コピー / 貼り付け |
 | `Leader [` | コピーモード（vim 風・`y` でコピー・`q` で抜ける） |
-| `Ctrl+Shift+P` | コマンドパレット（ランチャーもここから） |
+| `Ctrl+Shift+P` | コマンドパレット |
 | `Ctrl+Shift+R` | 設定の再読み込み |
 | `Ctrl +` / `Ctrl -` / `Ctrl 0` | 文字サイズ 拡大 / 縮小 / リセット |
 | `Alt+Enter` | フルスクリーン |
 
-Mac 版との違い: `Cmd+T/W/C/V` → `Ctrl+Shift+T/W/C/V`、`Cmd+数字` → `Alt+数字`。
+### シェル
 
-## キーボード（Keychron B1 Pro ANSI）
-
-US（ANSI）配列のキーボードを日本語版 Windows で使う。**設定は 2 層に分かれていて、持ち運び方が違う**。
-
-| 層 | 何が決まる | 実体の置き場 | 持ち運び |
-|---|---|---|---|
-| キーボードの中 | キーマップ（Caps=Ctrl・F13/F14 ほか） | キーボードの不揮発メモリ。編集は [Keychron Launcher](https://launcher.keychron.com/)（WebHID・ブラウザ） | キーボードごと動く＝**PC を変えても付いてくる** |
-| Windows の中 | **物理配列の解釈**（US 101 か JIS 106 か） | `HKLM\...\i8042prt\Parameters`（全ユーザー共通） | **PC ごとに要設定** |
-
-新しい PC でやるのは下の層だけ（**管理者**の PowerShell・**再起動**が要る）:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\keychron\Set-UsPhysicalLayout.ps1
-```
-
-| ファイル | 何 |
+| コマンド | 動作 |
 |---|---|
-| `keychron/Set-UsPhysicalLayout.ps1` | Windows を US 101 配列扱いにする。`-Show` は読むだけ（管理者権限は不要）・`-Revert` で日本語版の既定に戻す。変更前の値は `%LOCALAPPDATA%\dotfiles-windows\*.reg` に退避する |
-| `keychron/keymap/B1-Pro-ANSI.json` | キーマップのバックアップ。Launcher の読み込みで戻す（WebHID なので手作業） |
-| `keychron/settings.md` | 何をどう変えてあるかの説明（レイヤー構成・既定から変えた所・変更履歴） |
-| `keychron/Export-KeychronKeymap.ps1` | 今のPC → リポ（Launcher で書き出した後に流す） |
+| `vi` / `vim` | Neovim を開く |
+| `view` | 読み取り専用で開く（`nvim -R`） |
+| `vault` | Obsidian vault へ `cd`（PowerShell のみ。パスは `$env:DOTFILES_VAULT`） |
 
-これをやらないと記号の位置が JIS 配列として読まれて全部ずれる。入力言語（日本語）は変えない。
-キーの入れ替えは**キーボード側だけ**でやる＝`Scancode Map` も PowerToys Keyboard Manager も使わない（詳細 → `keychron/settings.md`）。
+`vi` 系は PowerShell と WSL の bash・zsh で効く。WSL 側の Neovim と zsh はこのリポでは入れない。
 
-## 日本語入力（IME）
+### Neovim
 
-IME は Google 日本語入力。**ON/OFF はトグルを使わず、F13 = OFF・F14 = ON**（キーボード側のレイヤから送る＝上の「キーボード」。macOS の「英数 / かな」と同じ考え方＝押した方向が決まっているので、今どちらかを覚えていなくても外さない）。
+LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して待つとキー一覧が出る。下は自分で足したもの。
 
-### Neovim: INSERT 以外では必ず OFF
-
-`nvim/lua/config/ime.lua`。INSERT を抜けた時・コマンドラインを抜けた時・`:terminal` の入力モードを抜けた時・起動時・他のアプリから戻った時（INSERT 中以外）に IME を切る。
-
-- 外部コマンドは呼ばない。LuaJIT の FFI で `GetForegroundWindow` → `ImmGetDefaultIMEWnd` → `WM_IME_CONTROL` を直接叩く（Esc のたびに exe を起動しない）
-- フォーカスを失っている間は何もしない（前面は別アプリ＝そちらの IME を消さないため）
-- Windows の Neovim だけ。WSL・Linux 側の Neovim では何もしない（あちらの IME は X/Wayland 側の持ち物）
-- 効いているかの確認は `:ImeState`（0=OFF・1=ON）
-- INSERT に戻った時に IME を元へ戻すことはしない。「INSERT 以外は必ず OFF」が目的で、日本語を打つ時は F14 を押す
-
-### Google 日本語入力の設定
-
-| ファイル | 何 |
+| キー / コマンド | 動作 |
 |---|---|
-| `google-ime/config1.db` | 設定の実体。復元に使う |
-| `google-ime/keymap.txt` | カスタムキーマップ。GUI の「キー設定の選択 → 編集 → インポート」でも読める形 |
-| `google-ime/settings.md` | 既定と違う所の説明（カスタムキーマップ・絵文字変換 ON） |
-| `google-ime/Export-GoogleIme.ps1` | 今のPC → リポ（GUI で設定を変えた後に流す） |
-| `google-ime/Restore-GoogleIme.ps1` | リポ → このPC（新しい PC のセットアップ用。今の設定は `.bak-日時` に退避する） |
+| `<leader>fo` | 今のファイルを既定アプリで開く（vault 内のノートは Obsidian） |
+| `<leader>fw` | 今のファイルをエクスプローラで選択状態にして開く |
+| `<leader>fy` | 今のファイルの絶対パスをコピー |
+| `<leader>sJ` | UTF-8 と CP932 を 1 回で検索（下の「文字コード」） |
+| `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
+| `:ImeState` | IME の状態を出す（0=OFF・1=ON） |
 
-ユーザー辞書と学習履歴（`history.db`・`segment.db` ほか）は入れない＝個人の入力内容そのもので、公開リポジトリに置くものではない。新しい PC では学習し直す。
+`<leader>fo`・`fw`・`fy` は snacks explorer の中でも、カーソル下のファイルに効く。
 
-### Obsidian（Vim モード）
+### Obsidian
 
-Obsidian は外部コマンド経由でしか IME を触れないので、プラグインを 1 つ入れる（手作業）:
+`~/.dotfiles.json` の `vault` を設定した PC で、vault 内の md を開いた時だけ効く。
+
+| キー / コマンド | 動作 |
+|---|---|
+| `:Obsidian open`・`<leader>fo` | 今のノートを Obsidian アプリで開く |
+| `:Obsidian today` | 日次ノート（`exocortex/daily/YYYY-MM-DD.md`）を開く |
+| `<CR>` | カーソル下のリンクを開く / チェックボックスを切り替える |
+| `[o` / `]o` | 前 / 次のリンクへ移動 |
+
+vault の中に居る時は Obsidian の紫（`#a882ff`）で示す。md 以外のファイルでも効く。
+
+| 場所 | いつ紫になる |
+|---|---|
+| WezTerm のタブ | Neovim で vault 内のファイルを開いている時・シェルの現在地が vault の中の時（裏のタブは文字だけ紫） |
+| Neovim の各ペイン上端のファイル名 | そのペインのファイルが vault の中の時 |
+
+保存時に frontmatter は足さない。新規ノート・テンプレート・画像の置き場は `exocortex/` 配下で、vault のフォルダ構成に合わせて `nvim/lua/plugins/obsidian.lua` に書いてある。
+
+Obsidian の Vim モードで IME を切るには、PC ごとに次を行う。
 
 1. コミュニティプラグイン **Vim IM Select**（`alonelur/vim-im-select-obsidian`）を入れて有効化する
-2. そのプラグインの設定で Windows 用の 3 項目を埋める
+2. その設定の Windows 用 3 項目を埋めて Obsidian を再起動する
    - Windows Default IM: `0`
    - Obtaining Command for Windows: `<clone 先>\tools\bin\ime.exe`
    - Switching Command for Windows: `<clone 先>\tools\bin\ime.exe {im}`
-   - `<clone 先>` の実際のパスは `install.ps1` が最後に表示する（後から知りたい時は clone の中で `pwsh -NoProfile -Command "(Resolve-Path .\tools\bin\ime.exe).Path"`）
-   - Obsidian の設定は絶対パスしか受けないので、clone 先を移したらここも直す（直すのはこの 2 行だけ）
-3. Obsidian を再起動する
 
-`ime.exe` は `tools/ime/Ime.cs` を `install.ps1` がビルドしたもの（引数なしで状態を出し、`0`/`1` で切り替える）。`winexe` なのでコンソール窓は一瞬も出ない。
+絶対パスしか受けないので、clone 先を移したらここも直す。実際のパスは `install.ps1` が最後に表示する。
 
-## 文字コード（Shift_JIS が混ざったプロジェクト）
+### 日本語入力（IME）
 
-会社のソースは CP932（Shift_JIS）が主で、UTF-8 のファイルも混ざっている。Neovim の既定では
-`fileencodings` の最後にある `latin1` がどんなバイト列でも「成功」してしまうので、BOM なしの
-CP932 は必ず化ける。`cp932` を `latin1` の前に入れてあるのがその対策（`nvim/lua/config/options.lua`）。
+Google 日本語入力。ON/OFF はトグルではなく **F13 = OFF・F14 = ON**（キーボード側のレイヤから送る）。
+
+- Neovim は INSERT 以外で必ず IME を切る（`nvim/lua/config/ime.lua`・Windows の Neovim だけ）。INSERT に戻っても ON には戻さないので、日本語を打つ時は F14 を押す
+- 設定を変えたら `google-ime\Export-GoogleIme.ps1` でリポへ書き出す。既定と違う所は `google-ime/settings.md`
+- ユーザー辞書と学習履歴はリポに入れない
+
+### キーボード（Keychron B1 Pro ANSI）
+
+US 配列のキーボードを日本語版 Windows で使う。設定は 2 層ある。
+
+| 層 | 何が決まる | 持ち運び |
+|---|---|---|
+| キーボードの中 | キーマップ（Caps=Ctrl・F13/F14 ほか）。編集は [Keychron Launcher](https://launcher.keychron.com/) | キーボードに付いてくる |
+| Windows の中 | 物理配列の解釈（US 101 か JIS 106 か） | PC ごとに `Set-UsPhysicalLayout.ps1`（上の「セットアップ」） |
+
+Windows 側をやらないと記号の位置がずれる。キーマップのバックアップは `keychron/keymap/B1-Pro-ANSI.json`（Launcher で書き出した後に `keychron\Export-KeychronKeymap.ps1`）。詳細は `keychron/settings.md`。
+
+### 文字コード（Shift_JIS が混ざったプロジェクト）
+
+CP932 と UTF-8 が混ざったツリーを、そのまま読み書きする。
 
 | 困る場面 | 手段 |
 |---|---|
-| 開くと化ける | 自動で判定する（`ucs-bom` → `utf-8` → `cp932`）。外した時だけ `:EncOpen cp932`（`euc-jp` なども補完に出る） |
-| 今どれで開いているか分からない | ステータスライン右に出る（`cp932`・`BOM`・`CR`）。UTF-8 かつ BOM なしの時は何も出さない |
-| 日本語で grep が当たらない | `<leader>sJ`＝UTF-8 と CP932 を 1 回で検索する。既定の `<leader>sg` は UTF-8 のファイルにしか当たらない |
-| 保存で文字コードが変わらないか不安 | 読んだ文字コードのまま書き戻る。変えたい時だけ `:EncToUtf8` / `:EncToSjis` |
-| 新しく作ったファイルを周りに合わせたい | `:EncToSjis`（既定は UTF-8。これで混在を増やさない） |
-| `:make` や quickfix の出力が化ける | その場で `:set makeencoding=char`（常時入れると `:grep` の出力が逆に化けるので入れていない） |
-| プロジェクト全体の内訳を知りたい | `pwsh -File tools\Survey-Encoding.ps1 -Path <フォルダ>`（読み取り専用。パスを含む明細は `-DetailOut` を付けた時だけローカルに書く） |
+| 開くと化ける | 自動で判定する（`ucs-bom` → `utf-8` → `cp932`）。外した時だけ `:EncOpen cp932` |
+| 今どれで開いているか分からない | ステータスライン右に出る（`cp932`・`BOM`・`CR`）。UTF-8 で BOM なしなら何も出ない |
+| 日本語で grep が当たらない | `<leader>sJ`。既定の `<leader>sg` は UTF-8 のファイルにしか当たらない |
+| 保存で文字コードを変えたい | 既定は読んだ文字コードのまま書き戻す。変える時だけ `:EncToUtf8` / `:EncToSjis` |
+| `:make` や quickfix の出力が化ける | その場で `:set makeencoding=char` |
+| プロジェクト全体の内訳を知りたい | `pwsh -File tools\Survey-Encoding.ps1 -Path <フォルダ>`（読み取り専用） |
 
-`<leader>sJ` の仕組み: ripgrep は 1 回の実行でファイルごとに文字コードを見分けられない
-（`--encoding sjis` は全ファイルを CP932 扱い、既定は BOM しか見ない）。そこで変換はさせず、
-検索語を「UTF-8 のバイト列 | CP932 のバイト列」の 2 択に展開して、バイト列として照合させている。
-UTF-8・UTF-8 BOM・UTF-16・CP932 が 1 回で当たる。結果の行と列番号は表示前に UTF-8 へ直す
-（`nvim/lua/config/encoding.lua`）。`sg` と分けてあるのは、この方式では `--no-unicode` が効いて
-正規表現の意味が少し変わるため（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）。
+- `<leader>sJ` は正規表現の意味が少し変わる（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）
+- 置換（`<leader>sr`）は CP932 のファイルに日本語で当たらない。そのファイルを開いて `:%s` でやる
 
-置換（`<leader>sr`・grug-far）の検索も ripgrep なので、CP932 のファイルは日本語では当たらない。
-CP932 のファイルを直す時は、そのファイルを開いて `:%s` でやる（保存時に CP932 のまま書き戻る）。
+### C/C++（Visual Studio のソリューション）
 
-## C/C++（Visual Studio のソリューション）
-
-LazyVim の `lang.clangd` extra を有効にしてある（`nvim/lazyvim.json`）。clangd 本体は mason が入れる。
-インクルードパスの手当ては要らない — clangd が MSVC と Windows SDK を自分で見つける
-（実測: `std::cout` から `BuildTools\VC\Tools\MSVC\14.44.35207\include\iostream` へ飛ぶ。`clangd --check` も 0 errors）。
+LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を自分で見つける。
 
 | 困る場面 | 手段 |
 |---|---|
 | 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`） |
 | ソースとヘッダを行き来したい | `<leader>ch` |
-| 別の `.cpp` にある定義が参照検索に出ない | `:CompileCommands`。そのファイルの上にある `.sln`（無ければ `.vcxproj`）から `compile_commands.json` を作る |
-| プロジェクト固有の `/I` や `/D` が効いていない | 同じく `:CompileCommands`。これが無いと clangd は「開いているファイルの翻訳単位」しか見ない |
-| 抽出ツールが入っていない | `pwsh -File tools\Install-MsbuildExtractor.ps1`（SHA256 を検証して `%LOCALAPPDATA%\msbuild-extractor\` に置く） |
-| LSP が動いているか確かめたい | `<leader>cl`（`:checkhealth` でも見える） |
+| 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | `:CompileCommands` |
+| 抽出ツールが入っていない | `pwsh -File tools\Install-MsbuildExtractor.ps1` |
+| LSP が動いているか確かめたい | `<leader>cl` |
 
-`:CompileCommands` の仕組み: MSBuild は `compile_commands.json` を出さないので、Microsoft の抽出ツール
-（[msbuild-extractor-sample](https://github.com/microsoft/msbuild-extractor-sample)）を呼ぶ。design-time 評価なのでビルドは走らない。
-構成（`Debug|x64` など）は `.sln` の `SolutionConfigurationPlatforms` の先頭を読む — 決め打ちにすると
-違う構成のフラグを掴む。リポに `msbuild-extractor.json` があればそれに従う（`-c`/`-a` は渡さない）。
-出力は `<ルート>\build\compile_commands.json`。clangd は編集中のファイルの親ディレクトリとその `build/` を
-順に探すので、置き場所の設定は要らない。ツールは `PATH` → `<プロジェクト>\.tools` → `%LOCALAPPDATA%\msbuild-extractor` の順に探す。
+`:CompileCommands` は、今のファイルの上にある `.sln`（無ければ `.vcxproj`）から `<ルート>\build\compile_commands.json` を作る。ビルドは走らない。構成は `.sln` の先頭のもの（リポに `msbuild-extractor.json` があればそれに従う）。
 
-実測（2026-10-05・テスト用の .sln で確認）: 生成前は別 TU の定義が参照に出ず（`add` の参照 1 件）、
-生成後は 3 件（ヘッダの宣言・`.cpp` の定義・呼び出し）。`AdditionalIncludeDirectories` に入れた
-`include\extra.h` も生成後に解決する。
+## 構成
 
-罠: 抽出ツールは self-contained の exe で、VS 側の MSBuild を見つけられないと .NET SDK 探索に落ち、
-`hostfxr.dll` を解決できず `DllNotFoundException` で死ぬ（`--vs-path` も `--msbuild-path` も効かない。
-引数の処理より前に走るため）。dotnet の `hostfxr.dll` を exe の隣に置くと通る＝導入スクリプトがやっている。
+設定の実体はすべてリポにあり、PC 側は読み込む 1 行やリンクを持つだけ。
+
+```
+PC 側（install.ps1 が作る）               リポ側（実体）
+~/.wezterm.lua（スタブ）       ──読む──▶ wezterm/
+$PROFILE（1 行を追記）         ──読む──▶ powershell/profile.ps1
+WSL の ~/.bashrc・~/.zshrc     ──読む──▶ wsl/osc7.sh・osc7.zsh ─▶ wsl/aliases.sh
+%LOCALAPPDATA%\nvim            ─junction▶ nvim/
+~/.dotfiles.json               ◀─読まれる─ wezterm・nvim・profile.ps1
+%LOCALAPPDATA%\nvim-data       リポの外（プラグイン本体。消しても入り直す）
+```
+
+```
+dotfiles-windows/
+├── install.ps1              セットアップ
+├── dotfiles.example.json    ~/.dotfiles.json の雛形
+├── wezterm/                 wezterm.lua（本体）・keybinds.lua（キー）・machine.lua（~/.dotfiles.json を読む）
+├── powershell/profile.ps1   現在地の通知・vi 系のエイリアス・vault
+├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
+├── nvim/                    LazyVim/starter が元
+│   ├── lua/config/          options・keymaps・autocmds の上書きと、
+│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）
+│   ├── lua/plugins/         encoding・obsidian・snacks・clangd・colorscheme
+│   ├── lazy-lock.json       プラグインの版の固定
+│   └── lazyvim.json         入れた extras
+├── tools/                   Survey-Encoding.ps1・Install-MsbuildExtractor.ps1・
+│                            ime/Ime.cs（→ bin/ime.exe・git 管理外）
+├── google-ime/              Google 日本語入力の設定と Export / Restore
+└── keychron/                キーマップのバックアップと Windows 側の設定スクリプト
+```
+
+## 設定を変える・同期する
+
+- リポの中のファイルを編集する。WezTerm は保存で自動的に読み直す
+- 他の PC へは `git push` → 向こうで `git pull`
+- Neovim のプラグインを更新（`:Lazy update`）したら `nvim/lazy-lock.json` も commit する。他の PC では `git pull` のあと `:Lazy restore`
+- `:LazyExtras` で足した機能は `nvim/lazyvim.json` に入るので、これも commit する
 
 ## 外す
 
-- `~/.wezterm.lua` を消す（退避した `.bak-*` があれば戻す）
+- `~/.wezterm.lua` を消す（`.bak-*` があれば戻す）
 - `$PROFILE` と WSL の `~/.bashrc`・`~/.zshrc` から、末尾が `# managed by dotfiles-windows/install.ps1` の行を消す
-- `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction だけ外す（リポの `nvim/` は残る。退避した `nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` を消す
-- Google 日本語入力の設定を戻すなら `config1.db.bak-*` を元の名前に戻す（`Restore-GoogleIme.ps1` が退避したもの）。GUI だけで戻すならキー設定の選択を「MS-IME」にする
-- Obsidian の Vim IM Select を無効化する。`tools/bin/` は消してよい（`install.ps1` が作り直す）
+- `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` を消す
+- Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
+- Obsidian の Vim IM Select を無効化する
+- `~/.dotfiles.json` を消す
