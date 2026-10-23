@@ -21,10 +21,12 @@ return {
     legacy_commands = false, -- 旧 :ObsidianOpen 形式のコマンドを作らない（4.0.0 で削除予定）
 
     -- path の最後の名前が、そのまま Obsidian 側の vault 名として URI に乗る
-    -- （commands/open.lua が vim.fs.basename(path) を使う）。`~/.dotfiles.json` の "vault" の
-    -- フォルダ名が、Obsidian が開いている vault 名と一致している必要がある。
+    -- （commands/open.lua が vim.fs.basename(path) を使う）。Obsidian の vault 名＝フォルダ名
+    -- なので、場所もフォルダ名も PC ごとに違ってよい。
+    -- name は書かない: プラグインが正規化した後の path から付ける（workspace.lua）ので、
+    -- "vault" が \ 区切り・末尾 / 付き・~ 始まりで書かれていても崩れない。
     workspaces = {
-      { name = vim.fs.basename(vault or ""), path = vault or "" },
+      { path = vault or "" },
     },
 
     -- 🔴 保存時に frontmatter を作らせない。
