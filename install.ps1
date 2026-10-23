@@ -241,10 +241,29 @@ if (Test-Path $cfgPath) {
     Write-Host "ok       $cfgPath"
 } else {
     $template = Get-Content (Join-Path $repo 'dotfiles.example.json') -Raw
-    # Fill in the vault when an Obsidian vault (a directory with .obsidian) is in a usual place
+    # Fill in the vault. Ask Obsidian first: %APPDATA%\obsidian\obsidian.json lists every
+    # vault this PC has opened, wherever it lives (the one open now wins, then the most
+    # recently opened). Fall back to the usual places in the home directory when Obsidian
+    # has not run here yet. A candidate counts only if it really has a .obsidian folder.
+    $candidates = @()
+    $obsidianJson = Join-Path $env:APPDATA 'obsidian\obsidian.json'
+    if (Test-Path $obsidianJson) {
+        try {
+            $known = (Get-Content $obsidianJson -Raw -Encoding UTF8 | ConvertFrom-Json).vaults
+            if ($known) {
+                $candidates += $known.PSObject.Properties.Value |
+                    Sort-Object @{ Expression = { [bool]$_.open }; Descending = $true },
+                                @{ Expression = { $_.ts }; Descending = $true } |
+                    ForEach-Object { $_.path }
+            }
+        } catch {
+            Write-Warning "cannot read ${obsidianJson}: $($_.Exception.Message)"
+        }
+    }
+    $candidates += @((Join-Path $HOME 'core'), (Join-Path $HOME 'vault'), (Join-Path $HOME 'Obsidian'))
     $vault = ''
-    foreach ($c in @((Join-Path $HOME 'core'), (Join-Path $HOME 'vault'), (Join-Path $HOME 'Obsidian'))) {
-        if (Test-Path (Join-Path $c '.obsidian')) { $vault = ($c -replace '\\', '/'); break }
+    foreach ($c in $candidates) {
+        if ($c -and (Test-Path (Join-Path $c '.obsidian'))) { $vault = ($c -replace '\\', '/'); break }
     }
     $out = $template -replace '"vault": "[^"]*"', ('"vault": "' + $vault + '"')
     [IO.File]::WriteAllText($cfgPath, $out, (New-Object Text.UTF8Encoding($false)))
