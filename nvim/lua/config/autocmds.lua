@@ -16,8 +16,11 @@ vim.api.nvim_create_autocmd({ "BufWinEnter", "WinEnter" }, {
     if vim.api.nvim_win_get_config(win).relative ~= "" then
       return
     end
-    if vim.bo[ev.buf].buftype == "" and vim.api.nvim_buf_get_name(ev.buf) ~= "" then
-      vim.wo[win].winbar = "%#TabLineSel# %f %m %#WinBar#"
+    local name = vim.api.nvim_buf_get_name(ev.buf)
+    if vim.bo[ev.buf].buftype == "" and name ~= "" then
+      -- Obsidian vault の中のファイルは紫（lua/config/vault.lua）
+      local hl = require("config.vault").contains(name) and "VaultWinbar" or "TabLineSel"
+      vim.wo[win].winbar = "%#" .. hl .. "# %f %m %#WinBar#"
     else
       vim.wo[win].winbar = ""
     end
@@ -102,3 +105,9 @@ show_cross(vim.api.nvim_get_current_win(), true)
 ----------------------------------------------------
 -- 中身と理由は lua/config/ime.lua（Windows の nvim でだけ効く・他では何もしない）
 require("config.ime").setup()
+
+----------------------------------------------------
+-- Obsidian vault の中に居る時は紫で示す
+----------------------------------------------------
+-- 中身と理由は lua/config/vault.lua（winbar の色は上の pane_winbar が選ぶ）
+require("config.vault").setup()

@@ -111,6 +111,9 @@ end
 ----------------------------------------------------
 -- アクティブなタブ＝LazyVim のタイトル（起動画面のロゴ）の青。tokyonight-moon の blue と同じ値
 local TAB_ACTIVE_BG = "#82aaff"
+-- Obsidian vault の中に居るタブ＝Obsidian のダークテーマの紫（--color-purple）。
+-- nvim/lua/config/vault.lua の COLOR と同じ値
+local TAB_VAULT_BG = "#a882ff"
 local TAB_INACTIVE_BG = "#22272e" -- それ以外のタブ
 local TAB_HOVER_BG = "#2d3440" -- マウスを載せたタブ
 local TAB_ACTIVE_FG = "#1b1d2b" -- 明るい青の上なので濃色（LazyVim のステータスラインと同じ組み合わせ）
@@ -153,16 +156,53 @@ local function tab_name(tab)
   return pane.title
 end
 
-local function tab_bg(tab, hover)
+-- Obsidian vault の中に居るタブは紫にする（vault の場所＝`~/.dotfiles.json` の "vault"）。
+-- 比べる形に揃える: / 区切り・WSL の /mnt/c/ は c:/ に・末尾の / なし・小文字
+local function norm_path(path)
+  path = path:gsub("\\", "/"):gsub("^/mnt/(%a)/", "%1:/"):gsub("^/(%a:)", "%1"):gsub("/+$", "")
+  return path:lower()
+end
+
+local vault_root
+if type(machine.config.vault) == "string" and machine.config.vault ~= "" then
+  local home = (os.getenv("USERPROFILE") or os.getenv("HOME") or "")
+  vault_root = norm_path((machine.config.vault:gsub("^~", home)))
+end
+
+-- そのペインが vault の中か。
+--   * nvim が動いている時は nvim の申告（ユーザー変数 in_vault・nvim/lua/config/vault.lua）に従う
+--     ＝開いているファイルで決まる（vault の外から vault のノートを開いても紫になる）
+--   * それ以外はシェルの現在地（OSC 7）で決める
+local function in_vault(pane)
+  if not vault_root then
+    return false
+  end
+  local flag = pane.user_vars and pane.user_vars.in_vault
+  if flag == "1" or flag == "0" then
+    return flag == "1"
+  end
+  local cwd = pane.current_working_dir
+  if not cwd then
+    return false
+  end
+  -- 新しい WezTerm は Url オブジェクト、古い版は "file://host/C:/..." の文字列
+  local path = type(cwd) == "userdata" and cwd.file_path or tostring(cwd):gsub("^file://[^/]*", "")
+  path = norm_path(path)
+  return path == vault_root or path:sub(1, #vault_root + 1) == vault_root .. "/"
+end
+
+local function tab_bg(tab, hover, vault)
   if tab.is_active then
-    return TAB_ACTIVE_BG
+    return vault and TAB_VAULT_BG or TAB_ACTIVE_BG
   end
   return hover and TAB_HOVER_BG or TAB_INACTIVE_BG
 end
 
 wezterm.on("format-tab-title", function(tab, _, _, _, hover)
-  local fg = tab.is_active and TAB_ACTIVE_FG or TAB_INACTIVE_FG
-  local bg = tab_bg(tab, hover)
+  local vault = in_vault(tab.active_pane)
+  -- 裏に回った vault のタブは、文字だけ紫（どのタブが vault かを探せるように）
+  local fg = tab.is_active and TAB_ACTIVE_FG or (vault and TAB_VAULT_BG or TAB_INACTIVE_FG)
+  local bg = tab_bg(tab, hover, vault)
   local name = wezterm.truncate_right(tab_name(tab), TAB_TITLE_MAX)
   return {
     -- タブ間の区切り＝左端の細い縦線（セル幅の 1/8 ≒ 1px）をウィンドウの背景色で描く。
