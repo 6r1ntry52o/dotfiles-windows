@@ -19,7 +19,8 @@ if (-not $SkipPackages) {
     } else {
         # Neovim, plus what LazyVim needs: ripgrep / fd / fzf (search), lazygit,
         # zig (C compiler) and tree-sitter-cli (both build the treesitter parsers).
-        $packages = 'wez.wezterm', 'Microsoft.PowerShell', 'Neovim.Neovim',
+        # PowerShell 7 is not in this list: see 1b.
+        $packages = 'wez.wezterm', 'Neovim.Neovim',
             'BurntSushi.ripgrep.MSVC', 'sharkdp.fd', 'junegunn.fzf',
             'JesseDuffield.lazygit', 'zig.zig', 'tree-sitter.tree-sitter-cli'
         foreach ($id in $packages) {
@@ -31,6 +32,30 @@ if (-not $SkipPackages) {
                 if ($LASTEXITCODE -ne 0) { Write-Warning "winget install $id failed (exit $LASTEXITCODE)" }
             }
         }
+    }
+}
+
+# 1b. PowerShell 7 must be the MSI build in Program Files. The Store / MSIX build only puts an
+#     app execution alias in WindowsApps, which Neovim cannot start (executable('pwsh') is 0),
+#     so LazyVim's terminal (<leader>ft / <leader>fT) silently falls back to Windows PowerShell 5.1.
+#     The machine-wide install needs admin, so without it this only says what to run.
+$pwshMsi = Join-Path $env:ProgramFiles 'PowerShell\7\pwsh.exe'
+$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
+    [Security.Principal.WindowsBuiltInRole]::Administrator)
+if (Test-Path $pwshMsi) {
+    Write-Host "ok       $pwshMsi"
+} elseif ($SkipPackages -or -not (Get-Command winget -ErrorAction SilentlyContinue)) {
+    Write-Warning "PowerShell 7 (MSI) not found at $pwshMsi. Neovim's terminal will use Windows PowerShell 5.1."
+} elseif ($isAdmin) {
+    Write-Host 'install  Microsoft.PowerShell (machine scope)'
+    winget install --id Microsoft.PowerShell -e --source winget --scope machine --accept-source-agreements --accept-package-agreements
+    if ($LASTEXITCODE -ne 0) { Write-Warning "winget install Microsoft.PowerShell failed (exit $LASTEXITCODE)" }
+} else {
+    Write-Warning "PowerShell 7 (MSI) not found. In an admin PowerShell run: winget install --id Microsoft.PowerShell -e --source winget --scope machine"
+}
+if (Get-Command Get-AppxPackage -ErrorAction SilentlyContinue) {
+    if (Get-AppxPackage Microsoft.PowerShell -ErrorAction SilentlyContinue) {
+        Write-Warning 'The Store / MSIX PowerShell is installed. Neovim cannot start it; once the MSI build is in, remove it with: Get-AppxPackage Microsoft.PowerShell | Remove-AppxPackage'
     }
 }
 
@@ -157,6 +182,34 @@ function Add-ProfileLine($path) {
 }
 
 Add-ProfileLine (Join-Path $docs 'PowerShell\Microsoft.PowerShell_profile.ps1')
+
+# Windows PowerShell 5.1's default policy (Restricted) also blocks the .ps1 shims npm puts on
+# PATH (claude.ps1 and the like), and Neovim's terminal falls back to 5.1 when PowerShell 7 is
+# missing, so allow local scripts for this user only. Only an unset or Restricted policy is
+# changed; a policy the user or Group Policy chose is left alone.
+# The registry is read and written directly (it is where 5.1 keeps its policy, in scope order),
+# so this works the same whether install.ps1 runs in 5.1 or in PowerShell 7, whose own
+# Get/Set-ExecutionPolicy would touch PowerShell 7's policy instead.
+$psPolicyKeys = [ordered]@{
+    MachinePolicy = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\PowerShell'
+    UserPolicy    = 'HKCU:\SOFTWARE\Policies\Microsoft\Windows\PowerShell'
+    CurrentUser   = 'HKCU:\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+    LocalMachine  = 'HKLM:\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+}
+$ps5Policy = $null
+foreach ($scope in $psPolicyKeys.Keys) {
+    $v = (Get-ItemProperty $psPolicyKeys[$scope] -Name ExecutionPolicy -ErrorAction SilentlyContinue).ExecutionPolicy
+    if ($v -and $v -ne 'Undefined') { $ps5Policy = [pscustomobject]@{ Scope = $scope; Value = $v }; break }
+}
+if ($ps5Policy -and $ps5Policy.Scope -like '*Policy') {
+    Write-Host "ok       Windows PowerShell 5.1 execution policy (set by Group Policy: $($ps5Policy.Value))"
+} elseif (-not $ps5Policy -or $ps5Policy.Value -eq 'Restricted') {
+    New-Item -Path $psPolicyKeys.CurrentUser -Force | Out-Null
+    Set-ItemProperty -Path $psPolicyKeys.CurrentUser -Name ExecutionPolicy -Value 'RemoteSigned'
+    Write-Host 'set      Windows PowerShell 5.1 execution policy (CurrentUser) -> RemoteSigned'
+} else {
+    Write-Host "ok       Windows PowerShell 5.1 execution policy ($($ps5Policy.Scope): $($ps5Policy.Value))"
+}
 
 # Windows PowerShell 5.1 refuses to load a profile under its default policy (Restricted)
 # and would print an error on every start, so link it only when scripts are allowed.

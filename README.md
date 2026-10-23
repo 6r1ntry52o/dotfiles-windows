@@ -17,19 +17,20 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 
 | # | 内容 |
 |---|---|
-| 1 | winget で WezTerm・PowerShell 7・Neovim・ripgrep・fd・fzf・lazygit・zig・tree-sitter-cli を入れる |
+| 1 | winget で WezTerm・Neovim・ripgrep・fd・fzf・lazygit・zig・tree-sitter-cli を入れる。PowerShell 7 は MSI 版（`C:\Program Files\PowerShell\7`）があるかを確かめる |
 | 2 | フォント HackGen Console NF を入れる（1 と 2 は `-SkipPackages` で飛ばせる） |
 | 3 | `~/.wezterm.lua` に `wezterm/wezterm.lua` を読むスタブを書く（既存は `.bak-日時` に退避） |
-| 4 | PowerShell の `$PROFILE` に `powershell/profile.ps1` を読む 1 行を足す |
+| 4 | PowerShell の `$PROFILE` に `powershell/profile.ps1` を読む 1 行を足す。5.1 の実行ポリシーが未設定なら CurrentUser を RemoteSigned にする |
 | 5 | WSL の `~/.bashrc`・`~/.zshrc` に `wsl/osc7.*` を読む 1 行を足す（`docker-desktop` 以外） |
 | 6 | `%LOCALAPPDATA%\nvim` を `nvim/` への junction にする（既存は `nvim.bak-日時` に退避） |
 | 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
 
-管理者権限は要らない。次の 3 つは `install.ps1` がやらないので、要る PC だけ手で行う。
+管理者権限は要らない。次は `install.ps1` がやらないので、要る PC だけ手で行う。
 
 | 何 | 手順 |
 |---|---|
+| PowerShell 7（MSI 版） | **管理者**で `winget install --id Microsoft.PowerShell -e --source winget --scope machine`。Store 版（MSIX）が入っていたら `Get-AppxPackage Microsoft.PowerShell \| Remove-AppxPackage` で外す。Store 版は WindowsApps のエイリアスで、Neovim から起動できない＝`<leader>ft` が 5.1 に落ちて `claude` などの `.ps1` が実行ポリシーで止まる |
 | Google 日本語入力の設定 | `google-ime\Restore-GoogleIme.ps1` を流す（今の設定は `.bak-日時` に退避） |
 | US 配列キーボード | **管理者**で `keychron\Set-UsPhysicalLayout.ps1` を流して再起動（`-Show` で確認・`-Revert` で戻す） |
 | Obsidian の IME 連携 | 下の「Obsidian」 |
