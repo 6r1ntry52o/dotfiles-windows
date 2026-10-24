@@ -119,6 +119,7 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 | `<leader>sJ` | UTF-8 と CP932 を 1 回で検索（下の「文字コード」） |
 | `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
 | `<leader>mb` / `<leader>me` | lazymsbuild（MSBuild の TUI）を開く・隠す / 最後のビルドのエラーを quickfix へ |
+| `<leader>mi` | clangd が今のファイルをどの構成（`Debug\|x64` など）で解析しているか（下の「C/C++」） |
 | `:ImeState` | IME の状態を出す（0=OFF・1=ON） |
 
 `<leader>fo`・`fw`・`fy` は snacks explorer の中でも、カーソル下のファイルに効く。
@@ -199,6 +200,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 | 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
 | ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
 | DB が最新か確かめたい | `lazymsbuild check`（全体の点検は `lazymsbuild doctor`） |
+| clangd がどの構成で解析しているか知りたい | ステータスライン右の `clangd: Debug\|x64`・`<leader>mi`（下の「どの構成で解析しているか」） |
 | LSP が動いているか確かめたい | `<leader>cl` |
 
 `:CompileCommands` は `lazymsbuild sync`。ビルドせずに、リポのルートの `compile_commands.json` を作り直す。以後は lazymsbuild でビルドするたびに DB が追従する。
@@ -206,6 +208,21 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 - 前の `:CompileCommands` が作った `<.sln のある所>\build\compile_commands.json` が残っていると、C/C++ を開いた時に消すか聞かれる（DB が 2 つあると clangd が古い方を読むことがある）
 - lazymsbuild が PATH に無い PC では、`:CompileCommands` は前のまま（抽出ツールを直接呼んで `<ルート>\build\compile_commands.json` を作る。抽出ツールの導入は `pwsh -File tools\Install-MsbuildExtractor.ps1`）
 - lazymsbuild の版を上げる時は `tools\Install-Lazymsbuild.ps1` の `-Version` と `-Sha256` を直して `install.ps1` を流す（自動更新はしない）
+
+#### どの構成で解析しているか
+
+clangd は `compile_commands.json` が変わっても、開いているファイルを自分からは解析し直さない（次の編集か保存で読み直す）。構成を切り替えた直後は、DB と clangd の解析が食い違うことがある。それをステータスラインに出す（`nvim/lua/config/clangd_profile.lua`）。
+
+| 表示 | 意味 |
+|---|---|
+| `clangd: Debug\|x64`（目立たない色） | clangd が今のファイルを Debug\|x64 の引数で解析した。公開中の DB と同じ |
+| `clangd: Debug\|x64 (DB: Release\|x64)`（警告の色） | DB は Release\|x64 なのに、clangd は前の Debug\|x64 のまま。保存（`:w`）すると開いているファイルを全部読み直す（DB の更新から 5 秒ほど後）。直らなければ `:LspRestart clangd` |
+| `DB: Debug\|x64` | clangd がこのファイルをまだ解析していない（公開中の DB の構成だけ出す） |
+| `clangd: 別の DB`・`clangd: ?`・`clangd: DB の外` | lazymsbuild のどの構成とも合わない引数で解析している（古い `build\compile_commands.json` や `.clangd` の `CompileFlags` を疑う） |
+
+- `<leader>mi` は同じことを、決め手の引数（`/MDd` `_DEBUG` など）と一緒に出す。ヘッダは、どの `.cpp` のコマンドを借りているかも出る
+- 目で確かめるなら、`#ifdef _DEBUG` の中は Release で解析されている時にコメントの色になる（clangd が無効な区間をコメントとして送る）
+- 仕組み: 公開中の DB は lazymsbuild に聞く（`lazymsbuild check`）。clangd の側は、clangd がファイルを解析するたびに出すログの実際の引数を、lazymsbuild が構成ごとに持つ DB の同じファイルの項目と突き合わせる。エディタの層の機能なので、lazymsbuild 本体ではなくここに置いている
 
 ## 構成
 
@@ -230,7 +247,8 @@ dotfiles-windows/
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
-│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）
+│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・
+│   │                        clangd_profile（clangd がどの構成で解析しているか）
 │   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
 │   ├── lazy-lock.json       プラグインの版の固定
 │   └── lazyvim.json         入れた extras

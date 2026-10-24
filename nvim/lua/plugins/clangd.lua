@@ -9,13 +9,15 @@
 -- DB は <リポジトリのルート>\compile_commands.json に置かれ、ビルドのたびに追従する。
 --   本体の導入 = tools/Install-Lazymsbuild.ps1（install.ps1 が呼ぶ）
 --   正本 = https://github.com/6r1ntry52o/lazymsbuild
--- このファイルに残っているのは次の 2 つだけ。
+-- このファイルに残っているのは次の 3 つだけ。
 --   1. lazymsbuild が PATH に無い PC（移行期間の保険）: 従来の :CompileCommands。Microsoft の
 --      抽出ツール（design-time 評価なのでビルド不要）を直接呼び、<ルート>\build\compile_commands.json
 --      を作る（clangd はファイルの親ディレクトリとその build/ を順に探すので、置くだけで拾う）。
 --        導入 = tools/Install-MsbuildExtractor.ps1・正本 = https://github.com/microsoft/msbuild-extractor-sample
 --   2. lazymsbuild がある PC: 1 が作った古い build\compile_commands.json が残っていたら、消すか聞く
 --      （DB が 2 つあると、clangd が古い方を読み続けることがある）。
+--   3. lazymsbuild がある PC: clangd がどの構成（Debug|x64 など）で解析しているかを出す
+--      （ステータスラインと <leader>mi。本体は config/clangd_profile.lua）。
 
 ---ツール本体を探す。順番は Microsoft のスキルと同じ: PATH → <root>\.tools → %LOCALAPPDATA%。
 ---会社PCでは .tools\ に置く運用でも同じコマンドが動くように、3 か所見る。
@@ -222,11 +224,24 @@ return {
             end
           end,
         })
+        require("config.clangd_profile").setup()
         return
       end
       vim.api.nvim_create_user_command("CompileCommands", generate, {
         desc = "VS のソリューション/プロジェクトから compile_commands.json を作る（lazymsbuild が無い時）",
       })
+    end,
+  },
+  {
+    -- 3. ステータスラインの右端に「clangd: Debug|x64」（公開中の DB と違えば警告の色で併記）
+    "nvim-lualine/lualine.nvim",
+    optional = true,
+    opts = function(_, opts)
+      if vim.fn.executable("lazymsbuild") == 0 then
+        return
+      end
+      local profile = require("config.clangd_profile")
+      table.insert(opts.sections.lualine_x, 1, { profile.statusline, color = profile.color })
     end,
   },
 }
