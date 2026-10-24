@@ -19,7 +19,7 @@
     sync が使う msbuild-extractor-sample は別に入れる（tools\Install-MsbuildExtractor.ps1）。
 
 .PARAMETER Version
-    入れるリリースのタグ（v0.1.0 など）。空なら何もしない（リリースを固定するまで）。
+    入れるリリースのタグ（v0.1.0 など）。空なら何もしない。
 
 .PARAMETER Sha256
     そのリリースの SHA256SUMS の SHA256。上げる時は、リリースのページから SHA256SUMS を落として
@@ -41,8 +41,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = '',
-    [string]$Sha256 = '',
+    [string]$Version = 'v0.1.0',
+    [string]$Sha256 = '2942f4d00660cf980c7ba3df1640af506c34b7ef1d63f9ac85becb7d6ffbd9e0',
     [string]$Destination = (Join-Path $env:LOCALAPPDATA 'Programs\lazymsbuild'),
     [string]$BaseUrl = 'https://github.com/6r1ntry52o/lazymsbuild/releases/download',
     [switch]$SkipPath,
