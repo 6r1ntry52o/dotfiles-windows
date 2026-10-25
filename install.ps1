@@ -342,6 +342,16 @@ if (Test-Path $cfgPath) {
     }
 }
 
+# 9. AI agents (Claude Code, GitHub Copilot CLI), on the PCs that have them: the skills in
+#    ai\skills (one copy, shown to both through junctions) and the editor's language servers
+#    (clangd from Mason, rust-analyzer from rustup). Plugins and rust-analyzer are fetched,
+#    which -SkipPackages skips. Nothing on this PC is sent anywhere.
+try {
+    & (Join-Path $repo 'tools\Install-AiAgents.ps1') -SkipPackages:$SkipPackages
+} catch {
+    Write-Warning "tools\Install-AiAgents.ps1 failed: $($_.Exception.Message)"
+}
+
 Write-Host 'done. Restart WezTerm (or Ctrl+Shift+R to reload). Open a new tab to pick up the shell changes.'
 Write-Host 'Start nvim once and wait: LazyVim installs its plugins on the first run.'
 Write-Host 'On a new PC, run google-ime\Restore-GoogleIme.ps1 to get the Google IME key settings back.'

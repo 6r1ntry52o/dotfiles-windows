@@ -41,3 +41,16 @@ if (Test-Path $dotfilesConfig) {
         Write-Warning "cannot read ${dotfilesConfig}: $($_.Exception.Message)"
     }
 }
+
+# Where this clone lives, for instructions that point at its tools
+# (ai/skills/msbuild-cpp: tools\Survey-Encoding.ps1).
+$env:DOTFILES = Split-Path -Parent $PSScriptRoot
+
+# AI agents started from this shell (claude, copilot) use the language servers that
+# Neovim's Mason installed (clangd): the editor's own version, sharing its index.
+# Neovim puts Mason's bin first on its own PATH; do the same here, once.
+$masonBin = Join-Path $env:LOCALAPPDATA 'nvim-data\mason\bin'
+if (Test-Path $masonBin) {
+    $onPath = @($env:Path -split ';' | ForEach-Object { $_.Replace('/', '\').TrimEnd('\') })
+    if ($onPath -notcontains $masonBin) { $env:Path = "$masonBin;$env:Path" }
+}

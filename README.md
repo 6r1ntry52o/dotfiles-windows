@@ -1,6 +1,6 @@
 # dotfiles-windows
 
-Windows 用の設定置き場。WezTerm・PowerShell・WSL のシェル・Neovim（LazyVim）。Mac 用は別リポ [`dotfiles`](https://github.com/6r1ntry52o/dotfiles)。
+Windows 用の設定置き場。WezTerm・PowerShell・WSL のシェル・Neovim（LazyVim）・AI エージェント（Claude Code・GitHub Copilot CLI）。Mac 用は別リポ [`dotfiles`](https://github.com/6r1ntry52o/dotfiles)。
 
 ## セットアップ
 
@@ -26,6 +26,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 6 | `%LOCALAPPDATA%\nvim` を `nvim/` への junction にする（既存は `nvim.bak-日時` に退避） |
 | 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
+| 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
 
 管理者権限は要らない。次は `install.ps1` がやらないので、要る PC だけ手で行う。
 
@@ -224,6 +225,23 @@ clangd は `compile_commands.json` が変わっても、開いているファイ
 - 目で確かめるなら、`#ifdef _DEBUG` の中は Release で解析されている時にコメントの色になる（clangd が無効な区間をコメントとして送る）
 - 仕組み: 公開中の DB は lazymsbuild に聞く（`lazymsbuild check`）。clangd の側は、clangd がファイルを解析するたびに出すログの実際の引数を、lazymsbuild が構成ごとに持つ DB の同じファイルの項目と突き合わせる。エディタの層の機能なので、lazymsbuild 本体ではなくここに置いている
 
+### AI エージェント（Claude Code・GitHub Copilot CLI）
+
+エディタと同じ道具（clangd・lazymsbuild）をエージェントにも使わせる。`install.ps1` の 9（`tools/Install-AiAgents.ps1`）が、入っているエージェントの分だけ設定する。
+
+| 何 | Claude Code | GitHub Copilot CLI |
+|---|---|---|
+| スキル（`ai/skills/`。常に読まれるのは説明の 1 行だけで、本文は C/C++ の作業の時に読まれる） | `~/.claude/skills/` に junction | `~/.copilot/skills/` に junction |
+| 言語サーバ | 公式プラグイン `clangd-lsp`（rustup がある PC は `rust-analyzer-lsp` も） | `~/.copilot/lsp-config.json` に clangd（rust-analyzer が動く PC はそれも）。既存の項目は変えず、足す前に `.bak-日時` に退避する |
+| clangd の実体 | Neovim の Mason のもの（nvim と同じ版で、索引 `.cache/clangd` も共有）。`powershell/profile.ps1` が PATH の先頭に足す | 同じ |
+
+- エージェントはリポのルートで起動する（nvim の `<leader>ft`）。cwd で開くとリポの一部しか作業範囲にならない
+- 効いているかの確認: Claude Code は C/C++ を編集した直後に `Found N new diagnostic issues` と出る（出なければ `/plugin` の Errors）。Copilot CLI は `/lsp`・`/lsp test clangd`、スキルは `copilot skill list`
+- clangd が見つからない時は、nvim を一度起動して（Mason が入れる）新しいタブを開く
+- この段は取得する（プラグイン・rust-analyzer）だけで、PC の情報を外へ送る仕組みは足さない
+- Claude Code は CP932 のファイルを書き換えない（Edit が拒否する）。スキルは「変換しない・聞く」と指示している
+- `profile.ps1` は `$env:DOTFILES`（この clone の場所）も設定する。スキルが `tools\Survey-Encoding.ps1` を指すのに使う
+
 ## 構成
 
 設定の実体はすべてリポにあり、PC 側は読み込む 1 行やリンクを持つだけ。
@@ -234,6 +252,9 @@ PC 側（install.ps1 が作る）               リポ側（実体）
 $PROFILE（1 行を追記）         ──読む──▶ powershell/profile.ps1
 WSL の ~/.bashrc・~/.zshrc     ──読む──▶ wsl/osc7.sh・osc7.zsh ─▶ wsl/aliases.sh
 %LOCALAPPDATA%\nvim            ─junction▶ nvim/
+~/.claude/skills/msbuild-cpp   ─junction▶ ai/skills/msbuild-cpp/（Claude Code）
+~/.copilot/skills/msbuild-cpp  ─junction▶ ai/skills/msbuild-cpp/（Copilot CLI）
+~/.copilot/lsp-config.json     リポの外（足りない言語サーバの項目だけ install.ps1 が足す）
 ~/.dotfiles.json               ◀─読まれる─ wezterm・nvim・profile.ps1
 %LOCALAPPDATA%\nvim-data       リポの外（プラグイン本体。消しても入り直す）
 ```
@@ -243,7 +264,8 @@ dotfiles-windows/
 ├── install.ps1              セットアップ
 ├── dotfiles.example.json    ~/.dotfiles.json の雛形
 ├── wezterm/                 wezterm.lua（本体）・keybinds.lua（キー）・machine.lua（~/.dotfiles.json を読む）
-├── powershell/profile.ps1   現在地の通知・vi 系のエイリアス・vault
+├── powershell/profile.ps1   現在地の通知・vi 系のエイリアス・vault・Mason の bin を PATH へ（AI エージェント用）
+├── ai/skills/               AI エージェントのスキル（Claude Code と Copilot CLI が同じものを読む）
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
@@ -252,7 +274,7 @@ dotfiles-windows/
 │   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
 │   ├── lazy-lock.json       プラグインの版の固定
 │   └── lazyvim.json         入れた extras
-├── tools/                   Survey-Encoding.ps1・Install-Lazymsbuild.ps1・Install-MsbuildExtractor.ps1・
+├── tools/                   Survey-Encoding.ps1・Install-Lazymsbuild.ps1・Install-MsbuildExtractor.ps1・Install-AiAgents.ps1・
 │                            ime/Ime.cs（→ bin/ime.exe・git 管理外）
 ├── google-ime/              Google 日本語入力の設定と Export / Restore
 └── keychron/                キーマップのバックアップと Windows 側の設定スクリプト
@@ -273,4 +295,5 @@ dotfiles-windows/
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
 - Obsidian の Vim IM Select を無効化する
 - lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
+- AI エージェントは `cmd /c rmdir %USERPROFILE%\.claude\skills\msbuild-cpp` と `cmd /c rmdir %USERPROFILE%\.copilot\skills\msbuild-cpp`（junction だけ外れる）、`~/.copilot/lsp-config.json` から `clangd`・`rust-analyzer` の項目を消す（`.bak-*` があれば戻す）、`claude plugin uninstall clangd-lsp@claude-plugins-official`（`rust-analyzer-lsp` も）、`rustup component remove rust-analyzer`
 - `~/.dotfiles.json` を消す
