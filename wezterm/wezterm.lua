@@ -31,15 +31,10 @@ config.window_decorations = "RESIZE"
 ----------------------------------------------------
 -- 起動時のウィンドウの大きさ
 ----------------------------------------------------
--- 既定の 80x24 はテキストエディタには狭いので、画面に対する割合で出す。
--- 割合は `~/.dotfiles.json` の wezterm.window_ratio で PC ごとに変えられる
-local WINDOW_RATIO = 0.8
-local window_ratio = tonumber(machine.wezterm.window_ratio) or WINDOW_RATIO
-if window_ratio <= 0 or window_ratio > 1 then
-  -- 設定を壊さない（既定値で続ける）
-  wezterm.log_error("wezterm.window_ratio が 0〜1 の外＝既定 " .. WINDOW_RATIO .. " で続ける")
-  window_ratio = WINDOW_RATIO
-end
+-- 画面の左半分いっぱいに出す（Win+← で寄せた時と同じ形）。
+-- WezTerm は作業領域（タスクバーを除いた範囲）を教えてくれないので、
+-- Windows 11 のタスクバー（下・高さ 48px＝100% 表示時）の分を引く
+local TASKBAR_HEIGHT = 48
 
 -- gui-startup は起動時の最初のウィンドウだけ（2 枚目以降・新しいタブは WezTerm の既定どおり）
 wezterm.on("gui-startup", function(cmd)
@@ -50,14 +45,10 @@ wezterm.on("gui-startup", function(cmd)
   end
   -- マウスがある画面＝これからウィンドウが出る画面（x/y はマルチモニタでの左上・1 枚なら 0,0）
   local screen = wezterm.gui.screens().active
-  local w = math.floor(screen.width * window_ratio)
-  local h = math.floor(screen.height * window_ratio)
-  gui:set_inner_size(w, h)
-  -- 中央寄せ
-  gui:set_position(
-    screen.x + math.floor((screen.width - w) / 2),
-    screen.y + math.floor((screen.height - h) / 2)
-  )
+  -- タスクバーの高さは表示スケール（150% なら 72px）に比例する
+  local taskbar = math.floor(TASKBAR_HEIGHT * (screen.effective_dpi or 96) / 96)
+  gui:set_position(screen.x, screen.y)
+  gui:set_inner_size(math.floor(screen.width / 2), screen.height - taskbar)
 end)
 
 ----------------------------------------------------

@@ -1,7 +1,6 @@
 {
   "vault": "",
   "wezterm": {
-    "font_size": 12.0,
-    "window_ratio": 0.8
+    "font_size": 12.0
   }
 }

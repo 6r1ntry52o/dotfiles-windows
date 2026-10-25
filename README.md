@@ -43,7 +43,7 @@ PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。�
 ```json
 {
   "vault": "C:/Users/<you>/core",
-  "wezterm": { "font_size": 12.0, "window_ratio": 0.8 }
+  "wezterm": { "font_size": 12.0 }
 }
 ```
 
@@ -51,7 +51,6 @@ PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。�
 |---|---|---|
 | `vault` | Obsidian vault の場所（Neovim と PowerShell が読む） | Obsidian 関連の機能を読み込まない |
 | `wezterm.font_size` | 文字の大きさ | 12.0 |
-| `wezterm.window_ratio` | 起動時のウィンドウが画面を占める割合（0〜1） | 0.8 |
 
 ### 別の PC で使う
 
