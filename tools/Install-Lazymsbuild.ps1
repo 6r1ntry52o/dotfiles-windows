@@ -41,8 +41,8 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Version = 'v0.1.0',
-    [string]$Sha256 = '2942f4d00660cf980c7ba3df1640af506c34b7ef1d63f9ac85becb7d6ffbd9e0',
+    [string]$Version = 'v0.1.1',
+    [string]$Sha256 = '2537cebf53f05a2546e11c49d7d9f2664ff84afbd87a8192b8f61091fde28ca3',
     [string]$Destination = (Join-Path $env:LOCALAPPDATA 'Programs\lazymsbuild'),
     [string]$BaseUrl = 'https://github.com/6r1ntry52o/lazymsbuild/releases/download',
     [switch]$SkipPath,
