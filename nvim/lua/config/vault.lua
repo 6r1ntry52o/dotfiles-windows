@@ -57,8 +57,11 @@ function M.setup()
   end
   local group = vim.api.nvim_create_augroup("vault_color", { clear = true })
 
-  -- テーマが後から塗り潰すので、起動処理の後に 1 回と、テーマを変えた時に塗る
-  -- （autocmds.lua の十字と同じ事情）
+  -- ここで直に塗っても効かない。`nvim <file>` で起動すると LazyVim は config/autocmds.lua（ここを
+  -- 呼んでいる）を colorscheme より先に読み込み（argc>0 の経路）、テーマが後から塗り潰す。
+  -- その時の ColorScheme イベントも lazy.nvim が起動中に eventignore で潰すので拾えない
+  -- （2026-10-05 に実測）。起動処理が終わってから＝vim.schedule で 1 回塗り、
+  -- テーマを切り替えた時は ColorScheme で塗り直す。
   local function paint()
     vim.api.nvim_set_hl(0, "VaultWinbar", { fg = FG, bg = M.COLOR, bold = true })
   end
