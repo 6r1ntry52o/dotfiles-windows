@@ -59,3 +59,10 @@ end, { desc = "今のファイルを CP932（Shift_JIS）で保存し直す" })
 --   :set makeencoding=char
 -- を打つ（char＝OS のロケール＝このPCでは CP932）。常時入れていないのは、LazyVim が
 -- grepprg を rg にしているので :grep の出力（UTF-8）まで変換されて、逆に化けるため。
+
+----------------------------------------------------
+-- lazymsbuild
+----------------------------------------------------
+-- PATH に無い時、<leader>mb / <leader>me が出す案内（plugins/lazymsbuild.lua）。
+-- 入れた後も、開いていた Neovim は古い PATH のままなので新しいタブから開き直す。
+vim.g.lazymsbuild_install_hint = [[dotfiles で pwsh -File tools\Install-Lazymsbuild.ps1 を実行し、新しいタブで Neovim を開き直す]]

@@ -4,11 +4,23 @@
 --   vim.g.lazymsbuild_external = true        -- external mode: give clangd --compile-commands-dir
 --   vim.g.lazymsbuild_restart_clangd = true  -- restart clangd when a build or sync ends
 --   vim.g.lazymsbuild_lualine = true         -- show a running build in lualine
+--   vim.g.lazymsbuild_install_hint = "..."   -- how to install it, shown when it is not on PATH
 
 local M = {}
 
 local function notify(message, level)
   vim.notify(message, level or vim.log.levels.INFO, { title = "lazymsbuild" })
+end
+
+--- Whether lazymsbuild is on PATH; says so when it is not (also when it was installed after
+--- Neovim started: PATH is read at start).
+local function installed()
+  if vim.fn.executable("lazymsbuild") == 1 then
+    return true
+  end
+  local hint = vim.g.lazymsbuild_install_hint or "install it, then start Neovim from a new terminal"
+  notify("lazymsbuild is not on PATH: " .. hint, vim.log.levels.ERROR)
+  return false
 end
 
 --- The root of the current buffer's project (LazyVim's), or the current directory.
@@ -55,6 +67,9 @@ end
 
 --- The last build's errors and warnings in the quickfix list.
 function M.errors()
+  if not installed() then
+    return
+  end
   local state = M.path("--state")
   local file = state and vim.fs.joinpath(state, "errors.txt")
   if not (file and vim.uv.fs_stat(file)) then
@@ -153,6 +168,9 @@ end
 
 --- lazymsbuild in a floating terminal, like lazygit's <leader>gg. Hiding it keeps the build going.
 function M.toggle()
+  if not installed() then
+    return
+  end
   Snacks.terminal.toggle("lazymsbuild", { cwd = root(), env = { LAZYMSBUILD_EDITOR = M.editor() } })
 end
 

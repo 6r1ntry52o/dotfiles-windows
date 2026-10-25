@@ -199,6 +199,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 | ソースとヘッダを行き来したい | `<leader>ch` |
 | 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
 | ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
+| `<leader>mb` で `lazymsbuild is not on PATH` と出る | 未導入か、入れる前から開いていた Neovim。`pwsh -File tools\Install-Lazymsbuild.ps1` の後、新しいタブで開き直す（案内の文は `config/options.lua` の `vim.g.lazymsbuild_install_hint`） |
 | DB が最新か確かめたい | `lazymsbuild check`（全体の点検は `lazymsbuild doctor`） |
 | clangd がどの構成で解析しているか知りたい | ステータスライン右の `clangd: Debug\|x64`・`<leader>mi`（下の「どの構成で解析しているか」） |
 | LSP が動いているか確かめたい | `<leader>cl` |
