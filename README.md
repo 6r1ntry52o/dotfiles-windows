@@ -54,7 +54,7 @@ PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。�
 
 | キー | 何に使う | 無いとき |
 |---|---|---|
-| `vault` | Obsidian vault の場所（Neovim・PowerShell・AI エージェントが読む） | Obsidian 関連の機能を読み込まない |
+| `vault` | Obsidian vault の場所（WezTerm・Neovim・PowerShell・AI エージェントが読む） | Obsidian 関連の機能を読み込まない（WezTerm は起動時のタブが 1 つ） |
 | `vault_ai_dir` | AI エージェントがまとめや TODO を書く vault 内のフォルダ（vault からの相対。分野ごとに `<分野>.md`）。PC ごとに決める | エージェントは vault に書く前に置き場を聞く |
 | `wezterm.font_size` | 文字の大きさ | 12.0 |
 
@@ -78,6 +78,16 @@ PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。�
 ### WezTerm
 
 既定シェルは PowerShell 7。新規タブ・分割は今いるペインの場所を引き継ぐ（PowerShell 7 と WSL の bash・zsh）。タイトルバーは無い＝終了は `Alt+F4`、移動はタブバーの空きをドラッグ。
+
+起動するとタブが 2 つ開き、2 つ目が前に出る。
+
+| タブ | 中身 |
+|---|---|
+| 1 | vault（`~/.dotfiles.json` の `vault`）を現在地にした Neovim（LazyVim の起動画面）。PowerShell 越しに開くので、Neovim を閉じても vault に居るシェルとして残る |
+| 2 | PowerShell（ホーム） |
+
+- `vault` が未設定・見つからない PC では、今までどおり PowerShell のタブ 1 つ
+- 起動時の最初のウィンドウだけ。開いている WezTerm からもう一度起動した時・`wezterm start --cwd …` などで場所やコマンドを渡した時は、そのタブ 1 つ
 
 既定のキーは無効化してある。Leader = `Ctrl+Q`（2 秒以内に次のキー）。
 
@@ -122,7 +132,7 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 | `<leader>fw` | 今のファイルをエクスプローラで選択状態にして開く |
 | `<leader>fy` | 今のファイルの絶対パスをコピー |
 | `<leader>sJ` | UTF-8 と CP932 を 1 回で検索（下の「文字コード」） |
-| `Ctrl+Enter` | C/C++: 実装へ飛ぶ（下の「C/C++」）。Markdown: リンク先を開く（`[..](..)`・`[[..]]`・`#見出し`。vault の内外で同じ動き。無ければ作らず知らせる。画像や PDF は既定アプリ） |
+| `Ctrl+Enter` | C/C++: 実装へ飛ぶ（下の「C/C++」）。Markdown: リンク先を開く（`[..](..)`・`[[..]]`・`#見出し`。vault の内外で同じ動き。無ければ作るか `y`/`n` で聞く＝下の「Obsidian」。画像や PDF は既定アプリ） |
 | `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
 | `<leader>mb` / `<leader>me` | lazymsbuild（MSBuild の TUI）を開く・隠す / 最後のビルドのエラーを quickfix へ |
 | `<leader>mi` | clangd が今のファイルをどの構成（`Debug\|x64` など）で解析しているか（下の「C/C++」） |
@@ -151,6 +161,16 @@ vault の中に居る時は Obsidian の紫（`#a882ff`）で示す。md 以外�
 | Neovim の各ペイン上端のファイル名 | そのペインのファイルが vault の中の時 |
 
 保存時に frontmatter は足さない。新規ノート・テンプレート・画像の置き場は `exocortex/` 配下で、vault のフォルダ構成に合わせて `nvim/lua/plugins/obsidian.lua` に書いてある。
+
+`Ctrl+Enter` で先の無いリンクを踏むと、作るかを `y`/`n` で聞く（作る場所も出る）。`y` で空のノートを作って開く。場所は Obsidian でそのリンクを踏んだ時と同じで、その PC の vault の設定を読む（`nvim/lua/config/newnote.lua`）。
+
+| リンク | 作る場所 |
+|---|---|
+| `[[名前]]`（フォルダなし） | dated-folders プラグインが有効なら、その日付のフォルダ（`<Base folder>/YYYY/MM-DD(Wnn)` など。無ければ作る・`Notes created from links` の設定にも従う）。無効なら Obsidian の「新規ノートの既定の場所」（`.obsidian/app.json` の `newFileLocation`） |
+| `[[a/名前]]`（フォルダあり） | 書いたとおり（vault から。`./` `../` で始まれば今のノートから） |
+| vault の外のリンク | 今のファイルのフォルダから |
+
+作るのは md のノートだけ（画像などのリンクは知らせるだけ）。
 
 チェックボックスの状態（`note/` の運用・`ai/skills/vault-note/SKILL.md`）は CSS snippet `vault-task-status`（`obsidian/snippets/`）で見分ける。`install.ps1` の 8b が vault に写す（写しは上書きするので、直すのはリポの方）。
 
@@ -219,7 +239,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 |---|---|
 | 実装に飛びたい | `Ctrl+Enter`。override があればそこへ（複数なら一覧）、無ければ定義へ。型名の上では型の定義へ |
 | 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`）。`gI` は仮想関数と派生クラスにしか効かない（clangd の仕様） |
-| 実装に飛ばず、ヘッダの宣言で止まる | ① `compile_commands.json` が無いか、インデックスの作成中 ② CP932 のソースで、行末がダメ文字（`表` `ソ` など 2 バイト目が `\`）のコメントの次の行は clangd に見えない（下の注） |
+| 実装に飛ばず、ヘッダの宣言で止まる | ① `compile_commands.json` が無いか、中身が空か（プロジェクトの読み込みでビルドが失敗した時も、空の DB が置かれた。`lazymsbuild check` の `coverage` が `0/…`。`Ctrl+Enter` がその時に知らせる）、インデックスの作成中 ② CP932 のソースで、行末がダメ文字（`表` `ソ` など 2 バイト目が `\`）のコメントの次の行は clangd に見えない（下の注） |
 | ソースとヘッダを行き来したい | `<leader>ch` |
 | 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
 | ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
@@ -314,7 +334,7 @@ dotfiles-windows/
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
-│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・jump（Ctrl+Enter）・wezterm・
+│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・jump（Ctrl+Enter）・newnote（新規ノートの場所）・wezterm・
 │   │                        clangd_profile（clangd がどの構成で解析しているか）
 │   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
 │   ├── lazy-lock.json       プラグインの版の固定

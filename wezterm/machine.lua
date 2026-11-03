@@ -21,7 +21,12 @@ if f then
   end
 end
 
--- このリポで使うのは wezterm セクションだけ（font_size／他のキーは nvim 等が見る）
+-- wezterm セクション（font_size）
 M.wezterm = type(M.config.wezterm) == "table" and M.config.wezterm or {}
+
+-- Obsidian vault の場所（"vault"・~ は展開する）。未設定なら nil
+if type(M.config.vault) == "string" and M.config.vault ~= "" then
+  M.vault = (M.config.vault:gsub("^~", home))
+end
 
 return M

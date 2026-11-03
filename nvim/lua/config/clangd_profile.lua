@@ -528,6 +528,15 @@ local function line_of(file)
   return text, warn
 end
 
+---clangd が最後に file を解析した時、DB の外（clangd の既定のフラグ）だったか。記録が無ければ false
+---（setup 前・この Neovim の clangd がまだ解析していない）。lazymsbuild には聞かない＝すぐ返る
+---@param file string
+---@return boolean
+function M.fallback(file)
+  local record = records[key(file)]
+  return record ~= nil and record.heuristic:find("fallback", 1, true) ~= nil
+end
+
 ---ステータスライン（lualine）。clangd が今のファイルを解析した構成。公開中の DB と違えば併記する。
 function M.statusline()
   local file = current()

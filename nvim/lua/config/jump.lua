@@ -23,6 +23,14 @@ function M.cpp()
     vim.notify("LSP が付いていません（:LspInfo で確認）", vim.log.levels.WARN)
     return
   end
+  -- compile_commands.json にこのファイルが無いと、clangd は推測のフラグで解析し、インデックスも
+  -- 作らない＝別の .cpp にある定義・実装へは飛べない（空の DB のまま使っていた・2026-11-03）
+  if require("config.clangd_profile").fallback(vim.api.nvim_buf_get_name(0)) then
+    vim.notify(
+      "このファイルは compile_commands.json に無い（clangd は推測のフラグで解析中）。別の .cpp へは飛べないことがある。:CompileCommands で作る（lazymsbuild check で原因が出る）",
+      vim.log.levels.WARN
+    )
+  end
   if on_type_name() then
     Snacks.picker.lsp_definitions()
     return
@@ -48,8 +56,8 @@ end
 ----------------------------------------------------
 -- Markdown
 ----------------------------------------------------
--- vault の中でも外でも同じ動きにするため、obsidian.nvim には頼らない（あちらは vault 内だけ。
--- <CR> で先の無いリンクを踏むと新規作成に進む）。ここは開くだけで、ファイルは作らない。
+-- vault の中でも外でも同じ動きにするため、obsidian.nvim には頼らない（あちらは vault 内だけ）。
+-- 先の無いリンクは、作るかを y/n で聞く。作る場所は Obsidian と同じ（lua/config/newnote.lua）。
 
 -- エディタで開かず、既定アプリに渡す拡張子
 local EXTERNAL = {}
@@ -200,6 +208,28 @@ local function open_file(path, anchor)
   end
 end
 
+---先の無いリンク: 作るかを y/n で聞き、作ったら開く（中身は空＝Obsidian と同じ）。
+---作るのは md のノートだけ（画像などは作れないので知らせるだけ）。
+---@param kind "wiki"|"md"
+local function offer_new(kind, path, file)
+  local ext = vim.fn.fnamemodify(path, ":e"):lower()
+  if file == "" or EXTERNAL[ext] or (kind == "md" and ext ~= "" and ext ~= "md") then
+    vim.notify("リンク先が見つかりません: " .. path, vim.log.levels.WARN)
+    return
+  end
+  local target = require("config.newnote").path(path, file)
+  local vault = require("config.vault")
+  local shown = vault.contains(target) and target:sub(#vault.root() + 2) or vim.fn.fnamemodify(target, ":~")
+  if vim.fn.confirm("リンク先がありません。作りますか？\n" .. shown, "&Yes\n&No", 2) ~= 1 then
+    return
+  end
+  if not exists(target) then
+    vim.fn.mkdir(vim.fs.dirname(target), "p")
+    vim.fn.writefile({}, target)
+  end
+  open_file(target)
+end
+
 function M.markdown()
   local kind, raw = link_at_cursor()
   if not kind then
@@ -221,7 +251,7 @@ function M.markdown()
   local file = vim.api.nvim_buf_get_name(0)
   local hits = resolve(kind, path, file)
   if #hits == 0 then
-    vim.notify("リンク先が見つかりません: " .. path, vim.log.levels.WARN)
+    offer_new(kind, path, file)
   elseif #hits == 1 then
     open_file(hits[1], anchor)
   else

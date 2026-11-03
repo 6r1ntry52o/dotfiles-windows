@@ -32,16 +32,41 @@ config.window_background_gradient = {
 config.window_decorations = "RESIZE"
 
 ----------------------------------------------------
--- 起動時のウィンドウの大きさ
+-- 起動時のウィンドウ（タブと大きさ）
 ----------------------------------------------------
 -- 画面の左半分いっぱいに出す（Win+← で寄せた時と同じ形）。
 -- WezTerm は作業領域（タスクバーを除いた範囲）を教えてくれないので、
 -- Windows 11 のタスクバー（下・高さ 48px＝100% 表示時）の分を引く
 local TASKBAR_HEIGHT = 48
 
--- gui-startup は起動時の最初のウィンドウだけ（2 枚目以降・新しいタブは WezTerm の既定どおり）
+-- 1 つ目のタブ＝vault を現在地にした LazyVim（vault の場所＝`~/.dotfiles.json` の "vault"）。
+-- シェル越しに起こすので、nvim を閉じてもタブは残る（vault に居るシェルになる）。
+-- vault が未設定・見つからない PC では nil
+local function vault_tab()
+  if not machine.vault or #wezterm.glob(machine.vault) == 0 then
+    return nil
+  end
+  local args = { "nvim" }
+  -- 既定のシェル（下の「Shell」で決まる PowerShell）
+  if config.default_prog then
+    args = { table.unpack(config.default_prog) }
+    for _, arg in ipairs({ "-NoExit", "-Command", "nvim" }) do
+      table.insert(args, arg)
+    end
+  end
+  return { cwd = machine.vault, args = args }
+end
+
+-- gui-startup は起動時の最初のウィンドウだけ（2 枚目以降・新しいタブは WezTerm の既定どおり）。
+-- 引数を付けて起動した時（`wezterm start --cwd …`・`-- <コマンド>`）は、そのタブ 1 つだけ
 wezterm.on("gui-startup", function(cmd)
-  local _, _, window = wezterm.mux.spawn_window(cmd or {})
+  local first = not cmd and vault_tab() or nil
+  local _, _, window = wezterm.mux.spawn_window(first or cmd or {})
+  if first then
+    -- 2 つ目のタブ＝今までどおりのシェル（ホームで開く。指定しないと 1 つ目の vault を引き継ぐ）。
+    -- 後から開いたこちらが前に出る（アクティブ）
+    window:spawn_tab({ cwd = wezterm.home_dir })
+  end
   local gui = window:gui_window()
   if not gui then
     return
@@ -157,11 +182,7 @@ local function norm_path(path)
   return path:lower()
 end
 
-local vault_root
-if type(machine.config.vault) == "string" and machine.config.vault ~= "" then
-  local home = (os.getenv("USERPROFILE") or os.getenv("HOME") or "")
-  vault_root = norm_path((machine.config.vault:gsub("^~", home)))
-end
+local vault_root = machine.vault and norm_path(machine.vault)
 
 -- そのペインが vault の中か。
 --   * nvim が動いている時は nvim の申告（ユーザー変数 in_vault・nvim/lua/config/vault.lua）に従う
