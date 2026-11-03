@@ -256,7 +256,7 @@ WSL の ~/.bashrc・~/.zshrc     ──読む──▶ wsl/osc7.sh・osc7.zsh �
 ~/.copilot/skills/msbuild-cpp  ─junction▶ ai/skills/msbuild-cpp/（Copilot CLI）
 ~/.copilot/lsp-config.json     リポの外（足りない言語サーバの項目だけ install.ps1 が足す）
 ~/.dotfiles.json               ◀─読まれる─ wezterm・nvim・profile.ps1
-%LOCALAPPDATA%\nvim-data       リポの外（プラグイン本体。消しても入り直す）
+%LOCALAPPDATA%\nvim-data       リポの外（install.ps1 は消さない。lazy\・mason\ は消しても入り直す。shada\＝Recent Files と Projects の元・sessions\・undo\ は消すと戻らない）
 ```
 
 ```
@@ -291,7 +291,7 @@ dotfiles-windows/
 
 - `~/.wezterm.lua` を消す（`.bak-*` があれば戻す）
 - `$PROFILE` と WSL の `~/.bashrc`・`~/.zshrc` から、末尾が `# managed by dotfiles-windows/install.ps1` の行を消す
-- `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` を消す
+- `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` の `lazy` と `mason` を消す（`nvim-data` ごと消すと Recent Files・Projects・セッション・undo の履歴も消える）
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
 - Obsidian の Vim IM Select を無効化する
 - lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
