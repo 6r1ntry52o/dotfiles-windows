@@ -18,6 +18,9 @@ local BAR_BG = "rgba(0,0,0,0)"
 
 -- 画面の大きさは PC ごとに違うので、`~/.dotfiles.json` の wezterm.font_size で上書きできる
 config.font_size = machine.wezterm.font_size or 12.0
+-- Ctrl+＋/－/0 で文字サイズを変えても、ウィンドウの大きさは変えない（行数・桁数の方が変わる）。
+-- 既定は行数・桁数を保つためにウィンドウを伸び縮みさせる
+config.adjust_window_size_when_changing_font_size = false
 -- HackGen Console NF（Nerd Font 入り＝アイコンもこのフォントで出る）。
 -- 未導入の PC では NF なしの HackGen Console → 同梱の JetBrains Mono に落ちる
 config.font = wezterm.font_with_fallback({ "HackGen Console NF", "HackGen Console", "JetBrains Mono" })

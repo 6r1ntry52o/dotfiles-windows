@@ -130,6 +130,10 @@ return {
     { key = "z", mods = "LEADER", action = act.TogglePaneZoomState },
 
     -- フォントサイズ切替
+    -- Ctrl+Shift+= は SHIFT 付きの "+" として届く（CTRL だけの "+" には当たらない）。
+    -- Shift を押さない Ctrl+= でも大きくする（Ctrl+- と対の位置）。CTRL だけの "+" はテンキーの +
+    { key = "+", mods = "SHIFT|CTRL", action = act.IncreaseFontSize },
+    { key = "=", mods = "CTRL", action = act.IncreaseFontSize },
     { key = "+", mods = "CTRL", action = act.IncreaseFontSize },
     { key = "-", mods = "CTRL", action = act.DecreaseFontSize },
     -- フォントサイズのリセット
