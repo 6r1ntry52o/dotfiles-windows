@@ -19,7 +19,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 |---|---|
 | 1 | winget で WezTerm・Neovim・ripgrep・fd・fzf・lazygit・zig・tree-sitter-cli を入れる。PowerShell 7 は MSI 版（`C:\Program Files\PowerShell\7`）があるかを確かめる |
 | 2 | フォント HackGen Console NF を入れる |
-| 2b | C/C++ 用に lazymsbuild と msbuild-extractor-sample を入れる（版は `tools/` の各スクリプトで固定し、SHA256 を確かめる。lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` に置いてユーザーの PATH に足す。1〜2b は `-SkipPackages` で飛ばせる） |
+| 2b | C/C++ 用に lazymsbuild と msbuild-extractor-sample を入れる（lazymsbuild は実行のたびに最新のリリースへ上げる。msbuild-extractor-sample の版は `tools/` のスクリプトで固定する。どちらも SHA256 を確かめる。lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` に置いてユーザーの PATH に足す。1〜2b は `-SkipPackages` で飛ばせる） |
 | 3 | `~/.wezterm.lua` に `wezterm/wezterm.lua` を読むスタブを書く（既存は `.bak-日時` に退避） |
 | 4 | PowerShell の `$PROFILE` に `powershell/profile.ps1` を読む 1 行を足す。5.1 の実行ポリシーが未設定なら CurrentUser を RemoteSigned にする |
 | 5 | WSL の `~/.bashrc`・`~/.zshrc` に `wsl/osc7.*` を読む 1 行を足す（`docker-desktop` 以外） |
@@ -208,7 +208,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 
 - 前の `:CompileCommands` が作った `<.sln のある所>\build\compile_commands.json` が残っていると、C/C++ を開いた時に消すか聞かれる（DB が 2 つあると clangd が古い方を読むことがある）
 - lazymsbuild が PATH に無い PC では、`:CompileCommands` は前のまま（抽出ツールを直接呼んで `<ルート>\build\compile_commands.json` を作る。抽出ツールの導入は `pwsh -File tools\Install-MsbuildExtractor.ps1`）
-- lazymsbuild の版を上げる時は `tools\Install-Lazymsbuild.ps1` の `-Version` と `-Sha256` を直して `install.ps1` を流す（自動更新はしない）
+- lazymsbuild を上げる時は `install.ps1` を流す（最新のリリースが入る。裏で自動更新はしない）。特定の版にする時は `pwsh -File tools\Install-Lazymsbuild.ps1 -Version <タグ> -Sha256 <SHA256SUMS の SHA256>`。次に `install.ps1` を流すと最新に戻る
 
 #### どの構成で解析しているか
 
