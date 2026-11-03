@@ -126,6 +126,8 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 
 `<leader>fo`・`fw`・`fy` は snacks explorer の中でも、カーソル下のファイルに効く。
 
+起動画面には上から Obsidian Vault（`~/.dotfiles.json` の `vault` と、Obsidian に登録されている vault）・Projects・Recent Files・Keymaps を出す。
+
 ### Obsidian
 
 `~/.dotfiles.json` の `vault` を設定した PC で、vault 内の md を開いた時だけ効く。

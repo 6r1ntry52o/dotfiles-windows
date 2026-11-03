@@ -35,6 +35,44 @@ function M.contains(path)
   return p == root or p:sub(1, #root + 1) == root .. "/"
 end
 
+---`~/.dotfiles.json` の vault の場所（未設定なら nil）。
+---@return string|nil
+function M.root()
+  return vault and vim.fs.normalize(vault) or nil
+end
+
+---この PC の vault の一覧（起動画面に出す）。先頭が `~/.dotfiles.json` の vault、続けて Obsidian に
+---登録されているもの（%APPDATA%\obsidian\obsidian.json・最近開いた順）。消えたフォルダは出さない。
+---@return string[]
+function M.registered()
+  local paths = { vault }
+  local appdata = vim.env.APPDATA
+  local f = appdata and io.open(vim.fs.joinpath(appdata, "obsidian", "obsidian.json"), "r")
+  if f then
+    local body = f:read("*a")
+    f:close()
+    local ok, decoded = pcall(vim.json.decode, body)
+    if ok and type(decoded) == "table" and type(decoded.vaults) == "table" then
+      local known = vim.tbl_values(decoded.vaults)
+      table.sort(known, function(a, b)
+        return (a.ts or 0) > (b.ts or 0)
+      end)
+      for _, v in ipairs(known) do
+        paths[#paths + 1] = v.path
+      end
+    end
+  end
+  local seen, list = {}, {}
+  for i = 1, table.maxn(paths) do
+    local path = paths[i]
+    if path and not seen[norm(path)] and vim.uv.fs_stat(path) then
+      seen[norm(path)] = true
+      list[#list + 1] = vim.fs.normalize(path)
+    end
+  end
+  return list
+end
+
 -- WezTerm のユーザー変数 in_vault を書く（OSC 1337 SetUserVar・値は base64）。
 -- "1"＝vault の中・"0"＝外・""＝nvim は居ない（WezTerm はシェルの現在地で判定する）。
 local sent
@@ -43,12 +81,7 @@ local function notify(value)
     return
   end
   sent = value
-  local seq = ("\027]1337;SetUserVar=in_vault=%s\007"):format(vim.base64.encode(value))
-  if vim.api.nvim_ui_send then
-    vim.api.nvim_ui_send(seq) -- nvim 0.12+
-  else
-    io.stdout:write(seq)
-  end
+  require("config.wezterm").set_user_var("in_vault", value)
 end
 
 function M.setup()
