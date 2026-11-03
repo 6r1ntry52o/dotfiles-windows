@@ -26,6 +26,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 5 | WSL の `~/.bashrc`・`~/.zshrc` に `wsl/osc7.*` を読む 1 行を足す（`docker-desktop` 以外） |
 | 6 | `%LOCALAPPDATA%\nvim` を `nvim/` への junction にする（既存は `nvim.bak-日時` に退避） |
 | 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用） |
+| 7b | `tools/bin/cp932-to-utf8.exe` をビルドし、`%LOCALAPPDATA%\lazygit\config.yml` に差分の表示フィルタとして書く（下の「文字コード」。自分で書いた `config.yml` があれば触らず、足す内容を警告で出す。clone 先を移したら流し直す） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
 | 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
 
@@ -183,12 +184,14 @@ CP932 と UTF-8 が混ざったツリーを、そのまま読み書きする。
 | 開くと化ける | 自動で判定する（`ucs-bom` → `utf-8` → `cp932`）。外した時だけ `:EncOpen cp932` |
 | 今どれで開いているか分からない | ステータスライン右に出る（`cp932`・`BOM`・`CR`）。UTF-8 で BOM なしなら何も出ない |
 | 日本語で grep が当たらない | `<leader>sJ`。既定の `<leader>sg` は UTF-8 のファイルにしか当たらない |
+| lazygit の差分が化ける | `install.ps1` が直す（行ごとに判定するので混在してもよい）。行ステージの画面は化けたまま＝ステージする内容を変えないため（CP932 のまま index に入る） |
 | 保存で文字コードを変えたい | 既定は読んだ文字コードのまま書き戻す。変える時だけ `:EncToUtf8` / `:EncToSjis` |
 | `:make` や quickfix の出力が化ける | その場で `:set makeencoding=char` |
 | プロジェクト全体の内訳を知りたい | `pwsh -File tools\Survey-Encoding.ps1 -Path <フォルダ>`（読み取り専用） |
 
 - `<leader>sJ` は正規表現の意味が少し変わる（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）
 - 置換（`<leader>sr`）は CP932 のファイルに日本語で当たらない。そのファイルを開いて `:%s` でやる
+- Neovim の git ピッカー（`<leader>gd` など）のプレビューと、シェルの `git diff` は化ける
 
 ### C/C++（Visual Studio のソリューション）
 
@@ -276,7 +279,7 @@ dotfiles-windows/
 │   ├── lazy-lock.json       プラグインの版の固定
 │   └── lazyvim.json         入れた extras
 ├── tools/                   Survey-Encoding.ps1・Install-Lazymsbuild.ps1・Install-MsbuildExtractor.ps1・Install-AiAgents.ps1・
-│                            ime/Ime.cs（→ bin/ime.exe・git 管理外）
+│                            ime/Ime.cs・cp932/Cp932ToUtf8.cs（→ bin/*.exe・git 管理外）
 ├── google-ime/              Google 日本語入力の設定と Export / Restore
 └── keychron/                キーマップのバックアップと Windows 側の設定スクリプト
 ```

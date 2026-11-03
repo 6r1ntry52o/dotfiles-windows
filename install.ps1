@@ -322,6 +322,46 @@ if (-not (Test-Path $csc)) {
     }
 }
 
+# 7b. lazygit: show CP932 (Shift_JIS) files in the diff panel without mojibake. The filter only
+#     touches what lazygit displays, never what it stages (see tools/cp932/Cp932ToUtf8.cs).
+#     lazygit has no include, so the config holds this clone's path: re-run after moving the clone.
+#     A config.yml you wrote yourself is left alone.
+$filterSrc = Join-Path $repo 'tools\cp932\Cp932ToUtf8.cs'
+$filterOut = Join-Path $repo 'tools\bin\cp932-to-utf8.exe'
+if (-not (Test-Path $csc)) {
+    Write-Warning "csc.exe not found at $csc. Skipping cp932-to-utf8.exe."
+} elseif ((Test-Path $filterOut) -and ((Get-Item $filterOut).LastWriteTime -ge (Get-Item $filterSrc).LastWriteTime)) {
+    Write-Host "ok       $filterOut"
+} else {
+    New-Item -ItemType Directory -Force (Split-Path -Parent $filterOut) | Out-Null
+    & $csc /nologo /optimize "/out:$filterOut" $filterSrc
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "csc failed (exit $LASTEXITCODE)"
+    } else {
+        Write-Host "built    $filterOut"
+    }
+}
+if (Test-Path $filterOut) {
+    $lgMarker = '# managed by dotfiles-windows/install.ps1'
+    $lgConfig = Join-Path $env:LOCALAPPDATA 'lazygit\config.yml'
+    $filterPath = ($filterOut -replace '\\', '/') -replace "'", "''"
+    $lgBody = @(
+        $lgMarker,
+        'git:',
+        '  diffRenderers:',
+        "    - command: '`"$filterPath`"'",
+        '      name: cp932',
+        ''
+    ) -join "`n"
+    if ((Test-Path $lgConfig) -and -not (Select-String -Path $lgConfig -SimpleMatch $lgMarker -Quiet)) {
+        Write-Warning "$lgConfig is your own. To fix mojibake in lazygit, add this to it:`n$lgBody"
+    } else {
+        New-Item -ItemType Directory -Force (Split-Path -Parent $lgConfig) | Out-Null
+        [IO.File]::WriteAllText($lgConfig, $lgBody, (New-Object Text.UTF8Encoding($false)))
+        Write-Host "wrote    $lgConfig"
+    }
+}
+
 # 8. Per-PC values: write ~/.dotfiles.json from the template when it is missing.
 #    Everything that differs between machines (the Obsidian vault path, display
 #    tweaks) lives there, so this repo stays machine-independent and can be cloned
