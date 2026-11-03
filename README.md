@@ -13,10 +13,11 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 
 終わったら新しいタブを開き、`nvim` を一度起動して待つ（プラグインとパーサーが入る。確認は `:LazyHealth`）。
 
-`install.ps1` は何度流してもよい。clone 先を移したら流し直す。やること:
+`install.ps1` は何度流してもよい。clone 先を移したら流し直す。設定を最新にする時も流すだけ（0 で clone が最新になる）。やること:
 
 | # | 内容 |
 |---|---|
+| 0 | clone を最新にする（今のブランチを `git pull --ff-only`。手元のコミットや変更が邪魔で進められない時は警告して、今の中身で続ける。`install.ps1` 自身が変わったら新しい方で流し直す。`-NoPull` で飛ばせる） |
 | 1 | winget で WezTerm・Neovim・ripgrep・fd・fzf・lazygit・zig・tree-sitter-cli を入れる。PowerShell 7 は MSI 版（`C:\Program Files\PowerShell\7`）があるかを確かめる |
 | 2 | フォント HackGen Console NF を入れる |
 | 2b | C/C++ 用に lazymsbuild と msbuild-extractor-sample を入れる（lazymsbuild は実行のたびに最新のリリースへ上げる。msbuild-extractor-sample の版は `tools/` のスクリプトで固定する。どちらも SHA256 を確かめる。lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` に置いてユーザーの PATH に足す。1〜2b は `-SkipPackages` で飛ばせる） |

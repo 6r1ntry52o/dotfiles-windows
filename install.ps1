@@ -1,11 +1,32 @@
 # dotfiles-windows installer. Safe to re-run.
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1
 #   -SkipPackages : install nothing (no winget, no font download), only link the config
-param([switch]$SkipPackages)
+#   -NoPull       : install this clone as it is, without updating it first
+param([switch]$SkipPackages, [switch]$NoPull)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $MyInvocation.MyCommand.Path
 $marker = '-- managed by dotfiles-windows/install.ps1'
+
+# 0. Update this clone first: the config is linked to it (see 6), so pulling is what brings the
+#    latest settings. Only a fast-forward of the current branch: when local commits or edits are
+#    in the way, it warns and installs what is here. When the pull changes install.ps1 itself, the
+#    new one runs instead (PowerShell has already read this one).
+if (-not $NoPull -and (Test-Path (Join-Path $repo '.git')) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+    $before = git -C $repo rev-parse HEAD
+    git -C $repo pull --ff-only --quiet
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "git pull --ff-only failed in $repo. Installing what is checked out."
+    } elseif ((git -C $repo rev-parse HEAD) -ne $before) {
+        Write-Host "updated  $repo"
+        if (git -C $repo diff --name-only $before HEAD -- install.ps1) {
+            & $MyInvocation.MyCommand.Path @PSBoundParameters -NoPull
+            return
+        }
+    } else {
+        Write-Host "ok       $repo"
+    }
+}
 
 function Test-WingetPackage($id) {
     winget list --id $id -e --accept-source-agreements *> $null
