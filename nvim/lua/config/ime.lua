@@ -89,6 +89,15 @@ function M.off()
   control(IMC_SETOPENSTATUS, 0)
 end
 
+---キーで操作する TUI のターミナルか。ここは :terminal の入力中でも文字を打つ場所ではないので、
+---IME が ON だと j/k/b が IME に食われて TUI に届かない。シェルや Claude Code のターミナルは
+---日本語を打つので対象にしない。
+---@return boolean
+local function in_key_driven_terminal()
+  local term = vim.b.snacks_terminal
+  return term ~= nil and term.cmd == "lazymsbuild"
+end
+
 function M.setup()
   if not supported then
     return
@@ -121,11 +130,22 @@ function M.setup()
     callback = function()
       focused = true
       -- i / ic / ix（挿入）と t（ターミナル）は打っている最中＝触らない
-      if not vim.fn.mode():match("^[it]") then
+      if not vim.fn.mode():match("^[it]") or in_key_driven_terminal() then
         M.off()
       end
     end,
     desc = "復帰時、INSERT 以外なら IME を OFF にする",
+  })
+
+  -- ターミナルからターミナルへ移る時は入力モードのままで TermLeave が来ないので、入った時に見る。
+  vim.api.nvim_create_autocmd("BufEnter", {
+    group = group,
+    callback = function()
+      if in_key_driven_terminal() then
+        M.off()
+      end
+    end,
+    desc = "キーで操作する TUI のターミナルに入ったら IME を OFF にする",
   })
   vim.api.nvim_create_autocmd("FocusLost", {
     group = group,
