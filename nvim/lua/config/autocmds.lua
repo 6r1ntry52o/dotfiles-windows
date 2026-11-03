@@ -104,3 +104,9 @@ require("config.ime").setup()
 ----------------------------------------------------
 -- 中身と理由は lua/config/vault.lua（winbar の色は上の pane_winbar が選ぶ）
 require("config.vault").setup()
+
+----------------------------------------------------
+-- Ctrl+Enter で実装・リンク先へ飛ぶ
+----------------------------------------------------
+-- 中身と理由は lua/config/jump.lua
+require("config.jump").setup()

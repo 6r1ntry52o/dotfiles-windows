@@ -119,6 +119,7 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 | `<leader>fw` | 今のファイルをエクスプローラで選択状態にして開く |
 | `<leader>fy` | 今のファイルの絶対パスをコピー |
 | `<leader>sJ` | UTF-8 と CP932 を 1 回で検索（下の「文字コード」） |
+| `Ctrl+Enter` | C/C++: 実装へ飛ぶ（下の「C/C++」）。Markdown: リンク先を開く（`[..](..)`・`[[..]]`・`#見出し`。vault の内外で同じ動き。無ければ作らず知らせる。画像や PDF は既定アプリ） |
 | `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
 | `<leader>mb` / `<leader>me` | lazymsbuild（MSBuild の TUI）を開く・隠す / 最後のビルドのエラーを quickfix へ |
 | `<leader>mi` | clangd が今のファイルをどの構成（`Debug\|x64` など）で解析しているか（下の「C/C++」） |
@@ -201,7 +202,9 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 
 | 困る場面 | 手段 |
 |---|---|
-| 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`） |
+| 実装に飛びたい | `Ctrl+Enter`。override があればそこへ（複数なら一覧）、無ければ定義へ。型名の上では型の定義へ |
+| 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`）。`gI` は仮想関数と派生クラスにしか効かない（clangd の仕様） |
+| 実装に飛ばず、ヘッダの宣言で止まる | ① `compile_commands.json` が無いか、インデックスの作成中 ② CP932 のソースで、行末がダメ文字（`表` `ソ` など 2 バイト目が `\`）のコメントの次の行は clangd に見えない（下の注） |
 | ソースとヘッダを行き来したい | `<leader>ch` |
 | 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
 | ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
@@ -212,6 +215,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 
 `:CompileCommands` は `lazymsbuild sync`。ビルドせずに、リポのルートの `compile_commands.json` を作り直す。以後は lazymsbuild でビルドするたびに DB が追従する。
 
+- ②は clangd がソースを UTF-8 として読むため。`// 表` の `\` が行継続になり、次の行の定義がコメントに飲まれる。コメントの末尾に文字を足せば直る
 - 前の `:CompileCommands` が作った `<.sln のある所>\build\compile_commands.json` が残っていると、C/C++ を開いた時に消すか聞かれる（DB が 2 つあると clangd が古い方を読むことがある）
 - lazymsbuild が PATH に無い PC では、`:CompileCommands` は前のまま（抽出ツールを直接呼んで `<ルート>\build\compile_commands.json` を作る。抽出ツールの導入は `pwsh -File tools\Install-MsbuildExtractor.ps1`）
 - lazymsbuild を上げる時は `install.ps1` を流す（最新のリリースが入る。裏で自動更新はしない）。特定の版にする時は `pwsh -File tools\Install-Lazymsbuild.ps1 -Version <タグ> -Sha256 <SHA256SUMS の SHA256>`。次に `install.ps1` を流すと最新に戻る
@@ -275,7 +279,7 @@ dotfiles-windows/
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
-│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・
+│   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・jump（Ctrl+Enter）・wezterm・
 │   │                        clangd_profile（clangd がどの構成で解析しているか）
 │   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
 │   ├── lazy-lock.json       プラグインの版の固定

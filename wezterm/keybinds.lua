@@ -89,6 +89,23 @@ return {
     -- 画面フルスクリーン切り替え
     { key = "Enter", mods = "ALT", action = act.ToggleFullScreen },
 
+    -- Ctrl+Enter を nvim に <C-CR> として届ける（ConPTY を通すと Enter と区別できなくなるので、
+    -- CSI 13;5u で送る）。行き先は nvim/lua/config/jump.lua。
+    -- シェルなどはこの形式を読めず文字が入ってしまうので、nvim のペインだけに絞る
+    -- （ユーザー変数 nvim＝jump.lua が立てる。get_foreground_process_name は Windows では
+    -- 一番新しい子孫を返すので、clangd が動いていると nvim と判定できない）。
+    {
+      key = "Enter",
+      mods = "CTRL",
+      action = wezterm.action_callback(function(window, pane)
+        if pane:get_user_vars().nvim == "1" then
+          window:perform_action(act.SendString("\x1b[13;5u"), pane)
+        else
+          window:perform_action(act.SendKey({ key = "Enter", mods = "CTRL" }), pane)
+        end
+      end),
+    },
+
     -- コピーモード
     -- { key = 'X', mods = 'LEADER', action = act.ActivateKeyTable{ name = 'copy_mode', one_shot =false }, },
     { key = "[", mods = "LEADER", action = act.ActivateCopyMode },
