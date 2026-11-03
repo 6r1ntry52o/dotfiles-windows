@@ -42,6 +42,30 @@ if (Test-Path $dotfilesConfig) {
     }
 }
 
+# copilot: hand Copilot CLI the vault's note/ (and the folder agents write to, vault_ai_dir)
+# in every session, wherever it starts. Claude Code gets the vault from its settings
+# (permissions.additionalDirectories, written by install.ps1); Copilot CLI has no such
+# setting and asks once per repository otherwise. Only for a session (no arguments, or
+# flags such as -p): subcommands like "copilot help" are passed through as they are.
+# In Copilot, attach a note by its path: @~/<vault>/note/... (Tab completes it).
+if ($env:DOTFILES_VAULT) {
+    $copilotApp = Get-Command copilot -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($copilotApp) {
+        $global:DotfilesCopilot = $copilotApp.Source
+        $global:DotfilesCopilotDirs = @()
+        foreach ($sub in @('note', $cfg.vault_ai_dir)) {
+            if (-not $sub) { continue }
+            $dir = Join-Path $env:DOTFILES_VAULT $sub
+            if (Test-Path $dir -PathType Container) { $global:DotfilesCopilotDirs += @('--add-dir', (Resolve-Path $dir).Path) }
+        }
+        function copilot {
+            $extra = @()
+            if ($args.Count -eq 0 -or "$($args[0])".StartsWith('-')) { $extra = $global:DotfilesCopilotDirs }
+            & $global:DotfilesCopilot @extra @args
+        }
+    }
+}
+
 # Where this clone lives, for instructions that point at its tools
 # (ai/skills/msbuild-cpp: tools\Survey-Encoding.ps1).
 $env:DOTFILES = Split-Path -Parent $PSScriptRoot

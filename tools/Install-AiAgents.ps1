@@ -16,9 +16,11 @@
       - vault（~/.dotfiles.json の vault がある PC）: どのリポで起動しても vault を読めるようにし、
         note/ を守るフック（ai\hooks\note-guard.ps1）をつなぐ
           Claude Code   ~/.claude/settings.json の permissions.additionalDirectories に vault、
-                        hooks.PreToolUse に note-guard（書き換える前に .bak-日時 に退避する）
-          Copilot CLI   ~/.copilot/hooks/note-guard.json（vault を読む許可は、最初に聞かれた時に
-                        与えればそのリポで覚える。全リポに効く設定は Copilot CLI に無い）
+                        hooks.PreToolUse に note-guard、fileSuggestion に tools\bin\file-suggest.exe
+                        （@ の候補に note/ のノートも出す。ここで csc.exe がビルドする）。
+                        書き換える前に .bak-日時 に退避する
+          Copilot CLI   ~/.copilot/hooks/note-guard.json。vault を読む許可は設定で与えられないので、
+                        powershell/profile.ps1 の copilot 関数が起動のたびに --add-dir で渡す
 
     clangd は Neovim の Mason が入れたものを使う（nvim を一度起動すると入る）。エディタと同じ版で、
     索引（.cache/clangd）も共有になる。エージェントからは、powershell/profile.ps1 が PATH の先頭に
@@ -261,11 +263,34 @@ if (-not $Vault -or -not (Test-Path $Vault -PathType Container)) {
             $pre += [pscustomobject]@{ matcher = 'PowerShell'; hooks = @(& $handler 'PowerShell(*note*)') }
             Set-Property $cfg.hooks 'PreToolUse' $pre
 
+            # @ の候補に note/ のノートも出す（組み込みの候補は起動した場所の中だけ）。
+            # file-suggest.exe は組み込みの代わりにプロジェクトのファイルも出す。自分で決めた
+            # fileSuggestion があれば触らない。
+            $fsSrc = Join-Path $repo 'tools\file-suggest\FileSuggest.cs'
+            $fsOut = Join-Path $repo 'tools\bin\file-suggest.exe'
+            $csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+            if ((Test-Path $csc) -and -not ((Test-Path $fsOut) -and ((Get-Item $fsOut).LastWriteTime -ge (Get-Item $fsSrc).LastWriteTime))) {
+                New-Item -ItemType Directory -Force (Split-Path -Parent $fsOut) | Out-Null
+                $r = Invoke-Tool $csc /nologo /optimize "/out:$fsOut" $fsSrc
+                if ($r.Code -ne 0) { Write-Warning "csc failed for file-suggest.exe (exit $($r.Code)): $($r.Output -join ' ')" }
+                else { Write-Host "built    $fsOut" }
+            }
+            $fsCommand = $fsOut -replace '\\', '/'
+            if ($fsCommand -match ' ') { $fsCommand = '"' + $fsCommand + '"' }
+            $fs = $cfg.PSObject.Properties['fileSuggestion']
+            if (-not (Test-Path $fsOut)) {
+                Write-Warning "file-suggest.exe is missing (csc.exe not found?): @ will not list the notes"
+            } elseif ($fs -and "$($fs.Value.command)" -notmatch 'file-suggest\.exe') {
+                Write-Host "skip     fileSuggestion (your own is set: $($fs.Value.command))"
+            } else {
+                Set-Property $cfg 'fileSuggestion' ([pscustomobject][ordered]@{ type = 'command'; command = $fsCommand })
+            }
+
             if (($cfg | ConvertTo-Json -Depth 20 -Compress) -eq $before) {
-                Write-Host "ok       $cfgPath (vault, note-guard)"
+                Write-Host "ok       $cfgPath (vault, note-guard, fileSuggestion)"
             } else {
                 Write-JsonFile $cfgPath $cfg
-                Write-Host "set      $cfgPath (additionalDirectories += $vaultPath, PreToolUse note-guard)"
+                Write-Host "set      $cfgPath (additionalDirectories += $vaultPath, PreToolUse note-guard, fileSuggestion)"
             }
         }
     }

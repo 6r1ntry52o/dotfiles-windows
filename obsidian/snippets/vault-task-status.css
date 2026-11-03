@@ -1,6 +1,8 @@
-/* vault-task-status — the task states of note/ (ai/skills/vault-note/SKILL.md).
-   The source is dotfiles-windows/obsidian/snippets/; install.ps1 copies it into the vault and
-   overwrites the copy, so edit it there.
+/* vault-task-status — task states for notes that AI agents may mark but not rewrite: an agent
+   turns "- [ ]" into "- [a]" when it has done the task, and the owner checks it as [d] or [x].
+   Source: dotfiles-windows/obsidian/snippets/ (https://github.com/6r1ntry52o/dotfiles-windows).
+   Its install.ps1 copies it into the vault and overwrites the copy; other copies (custom_vault)
+   are taken from there too, so edit the source.
 
      [ ]  not started                        (Obsidian's own look)
      [a]  done by an AI agent, not checked    purple box, sparkle; the text stays as it is
