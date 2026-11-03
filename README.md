@@ -28,7 +28,8 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用） |
 | 7b | `tools/bin/cp932-to-utf8.exe` をビルドし、`%LOCALAPPDATA%\lazygit\config.yml` に差分の表示フィルタとして書く（下の「文字コード」。自分で書いた `config.yml` があれば触らず、足す内容を警告で出す。clone 先を移したら流し直す） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
-| 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
+| 8b | `obsidian/snippets/*.css`（note/ のチェックボックスの状態の見た目）を vault の `.obsidian/snippets` に写し、Obsidian が開いていれば有効にする（下の「Obsidian」） |
+| 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする。vault がある PC では、どのリポから起動しても vault を読めるようにし、note/ を守るフックをつなぐ（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
 
 管理者権限は要らない。次は `install.ps1` がやらないので、要る PC だけ手で行う。
 
@@ -46,13 +47,15 @@ PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。�
 ```json
 {
   "vault": "C:/Users/<you>/core",
+  "vault_ai_dir": "nexus/fields",
   "wezterm": { "font_size": 12.0 }
 }
 ```
 
 | キー | 何に使う | 無いとき |
 |---|---|---|
-| `vault` | Obsidian vault の場所（Neovim と PowerShell が読む） | Obsidian 関連の機能を読み込まない |
+| `vault` | Obsidian vault の場所（Neovim・PowerShell・AI エージェントが読む） | Obsidian 関連の機能を読み込まない |
+| `vault_ai_dir` | AI エージェントがまとめや TODO を書く vault 内のフォルダ（vault からの相対。分野ごとに `<分野>.md`）。PC ごとに決める | エージェントは vault に書く前に置き場を聞く |
 | `wezterm.font_size` | 文字の大きさ | 12.0 |
 
 ### 別の PC で使う
@@ -149,6 +152,18 @@ vault の中に居る時は Obsidian の紫（`#a882ff`）で示す。md 以外�
 
 保存時に frontmatter は足さない。新規ノート・テンプレート・画像の置き場は `exocortex/` 配下で、vault のフォルダ構成に合わせて `nvim/lua/plugins/obsidian.lua` に書いてある。
 
+チェックボックスの状態（`note/` の運用・`ai/skills/vault-note/SKILL.md`）は CSS snippet `vault-task-status`（`obsidian/snippets/`）で見分ける。`install.ps1` の 8b が vault に写す（写しは上書きするので、直すのはリポの方）。
+
+| 書き方 | 意味 | 見た目 |
+|---|---|---|
+| `- [ ]` | 未着手 | Obsidian のまま |
+| `- [a]` | AI が実施し、まだ確認していない（まとめへのリンクが同じ行にある） | 紫の箱にきらめき。打ち消し線なし |
+| `- [d]` | 確認して完了・後で見返す | 緑の箱にしおり。文字は薄く、打ち消し線なし |
+| `- [x]` | 確認して完了・見返さない | Obsidian のまま（チェックと打ち消し線） |
+
+- Tasks プラグインで `[a]` を未完了（一覧に残る）、`[d]` を完了として扱うには、その設定の Task Statuses に `a`（型 ON_HOLD など DONE 以外）と `d`（型 DONE）を足す（vault ごと・手で）
+- Obsidian が閉じている時に `install.ps1` を流すと、写すだけで有効にはしない（設定 → 外観 → CSS スニペットで入れるか、開いている時にもう一度流す）
+
 Obsidian の Vim モードで IME を切るには、PC ごとに次を行う。
 
 1. コミュニティプラグイン **Vim IM Select**（`alonelur/vim-im-select-obsidian`）を入れて有効化する
@@ -237,11 +252,13 @@ clangd は `compile_commands.json` が変わっても、開いているファイ
 
 ### AI エージェント（Claude Code・GitHub Copilot CLI）
 
-エディタと同じ道具（clangd・lazymsbuild）をエージェントにも使わせる。`install.ps1` の 9（`tools/Install-AiAgents.ps1`）が、入っているエージェントの分だけ設定する。
+エディタと同じ道具（clangd・lazymsbuild）をエージェントにも使わせ、どのリポで起動しても vault の `note/`（自分の要求の正本）を読んで作業させる。`install.ps1` の 9（`tools/Install-AiAgents.ps1`）が、入っているエージェントの分だけ設定する。
 
 | 何 | Claude Code | GitHub Copilot CLI |
 |---|---|---|
-| スキル（`ai/skills/`。常に読まれるのは説明の 1 行だけで、本文は C/C++ の作業の時に読まれる） | `~/.claude/skills/` に junction | `~/.copilot/skills/` に junction |
+| スキル（`ai/skills/`。常に読まれるのは説明の 1 行だけで、本文はその作業の時に読まれる）: `msbuild-cpp`（C/C++）・`vault-note`（note/ の運用・リンクの引き方） | `~/.claude/skills/` に junction | `~/.copilot/skills/` に junction |
+| vault を読む（`~/.dotfiles.json` の `vault`） | `~/.claude/settings.json` の `permissions.additionalDirectories` に足す（読むのは許可なし・書くのは権限モードのまま） | 全リポに効く設定が無い。最初に聞かれた時に許可すれば、そのリポでは覚える |
+| note/ を守るフック（`ai/hooks/note-guard.ps1`） | `~/.claude/settings.json` の `hooks.PreToolUse`（シェルは `note` を含むコマンドの時だけ呼ぶ） | `~/.copilot/hooks/note-guard.json` |
 | 言語サーバ | 公式プラグイン `clangd-lsp`（rustup がある PC は `rust-analyzer-lsp` も） | `~/.copilot/lsp-config.json` に clangd（rust-analyzer が動く PC はそれも）。既存の項目は変えず、足す前に `.bak-日時` に退避する |
 | clangd の実体 | Neovim の Mason のもの（nvim と同じ版で、索引 `.cache/clangd` も共有）。`powershell/profile.ps1` が PATH の先頭に足す | 同じ |
 
@@ -251,6 +268,15 @@ clangd は `compile_commands.json` が変わっても、開いているファイ
 - この段は取得する（プラグイン・rust-analyzer）だけで、PC の情報を外へ送る仕組みは足さない
 - Claude Code は CP932 のファイルを書き換えない（Edit が拒否する）。スキルは「変換しない・聞く」と指示している
 - `profile.ps1` は `$env:DOTFILES`（この clone の場所）も設定する。スキルが `tools\Survey-Encoding.ps1` を指すのに使う
+
+#### vault と note/
+
+- `note/` は自分だけが書く場所。エージェントが変えてよいのは、自分の `- [ ]` の行に `[[リンク]]` を挿すことと、実施した行を `- [a]` にして同じ行にまとめへの `[[リンク]]` を足すことだけ（スキル `vault-note` に書き、フックが機械で止める）。それ以外の書き込み（新しいファイル・書き換え・行の追加や削除・`[d]` `[x]`・シェルでの削除や移動）は、その都度こちらに聞いてくる
+- まとめと AI の TODO は `vault_ai_dir`（上の「PC ごとの設定」）に分野ごとに書く。未設定ならエージェントは書く前に置き場を聞く
+- リンクは `ai/skills/vault-note/scripts/vault-links.ps1 <ノート>` で引く。開いている Obsidian の CLI（1.12 以降・設定 → 一般 → コマンドラインインターフェース）に聞き、そのノートのリンク先・被リンクと、その前後の行だけを JSON で返す（Obsidian が閉じていれば起動する）。`[[名前]]` を grep するより短く、別名・見出し・別フォルダも Obsidian と同じに解く
+- フックは `powershell.exe`（5.1）で動く。1 回 0.25 秒ほど。自分自身が壊れた時は止めずに通す
+- Copilot CLI のフックが受け取る引数の名前は公式に書かれていない。両方の名前（`file_path`・`path` など）を読み、読めない形は聞く側に倒す。実際に届く形を見るには、`NOTE_GUARD_LOG` にファイルを指定して起動する
+- 効いているかの確認: vault の外のリポでエージェントを起動し、「vault の note/ に test.md を作って」と頼む → 許可を求められれば効いている（断る）
 
 ## 構成
 
@@ -265,6 +291,9 @@ WSL の ~/.bashrc・~/.zshrc     ──読む──▶ wsl/osc7.sh・osc7.zsh �
 ~/.claude/skills/msbuild-cpp   ─junction▶ ai/skills/msbuild-cpp/（Claude Code）
 ~/.copilot/skills/msbuild-cpp  ─junction▶ ai/skills/msbuild-cpp/（Copilot CLI）
 ~/.copilot/lsp-config.json     リポの外（足りない言語サーバの項目だけ install.ps1 が足す）
+~/.claude/settings.json        リポの外（vault の additionalDirectories と note-guard のフックだけ install.ps1 が足す）─呼ぶ▶ ai/hooks/note-guard.ps1
+~/.copilot/hooks/note-guard.json  install.ps1 が書く ─呼ぶ▶ ai/hooks/note-guard.ps1
+<vault>/.obsidian/snippets/vault-task-status.css  写し（install.ps1 が上書き）◀─ obsidian/snippets/
 ~/.dotfiles.json               ◀─読まれる─ wezterm・nvim・profile.ps1
 %LOCALAPPDATA%\nvim-data       リポの外（install.ps1 は消さない。lazy\・mason\ は消しても入り直す。shada\＝Recent Files と Projects の元・sessions\・undo\ は消すと戻らない）
 ```
@@ -275,7 +304,9 @@ dotfiles-windows/
 ├── dotfiles.example.json    ~/.dotfiles.json の雛形
 ├── wezterm/                 wezterm.lua（本体）・keybinds.lua（キー）・machine.lua（~/.dotfiles.json を読む）
 ├── powershell/profile.ps1   現在地の通知・vi 系のエイリアス・vault・Mason の bin を PATH へ（AI エージェント用）
-├── ai/skills/               AI エージェントのスキル（Claude Code と Copilot CLI が同じものを読む）
+├── ai/skills/               AI エージェントのスキル（Claude Code と Copilot CLI が同じものを読む）・vault-note/scripts/vault-links.ps1
+├── ai/hooks/                note-guard.ps1（note/ を守る PreToolUse フック・両エージェント共通）
+├── obsidian/snippets/       vault に写す CSS（tools/Install-ObsidianSnippets.ps1 が写す）
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
@@ -305,5 +336,6 @@ dotfiles-windows/
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
 - Obsidian の Vim IM Select を無効化する
 - lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
-- AI エージェントは `cmd /c rmdir %USERPROFILE%\.claude\skills\msbuild-cpp` と `cmd /c rmdir %USERPROFILE%\.copilot\skills\msbuild-cpp`（junction だけ外れる）、`~/.copilot/lsp-config.json` から `clangd`・`rust-analyzer` の項目を消す（`.bak-*` があれば戻す）、`claude plugin uninstall clangd-lsp@claude-plugins-official`（`rust-analyzer-lsp` も）、`rustup component remove rust-analyzer`
+- vault 関係は `~/.claude/settings.json` の `hooks.PreToolUse` から `note-guard.ps1` を呼ぶ 3 項目と `permissions.additionalDirectories` の vault を消し（`.bak-*` があれば戻す）、`~/.copilot/hooks/note-guard.json` を消す。CSS は Obsidian の設定で切って `<vault>/.obsidian/snippets/vault-task-status.css` を消す
+- AI エージェントは `cmd /c rmdir %USERPROFILE%\.claude\skills\msbuild-cpp` と `cmd /c rmdir %USERPROFILE%\.copilot\skills\msbuild-cpp`（`vault-note` も同じ・junction だけ外れる）、`~/.copilot/lsp-config.json` から `clangd`・`rust-analyzer` の項目を消す（`.bak-*` があれば戻す）、`claude plugin uninstall clangd-lsp@claude-plugins-official`（`rust-analyzer-lsp` も）、`rustup component remove rust-analyzer`
 - `~/.dotfiles.json` を消す

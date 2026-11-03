@@ -404,10 +404,19 @@ if (Test-Path $cfgPath) {
     }
 }
 
+# 8b. Obsidian: copy the CSS snippets in obsidian\snippets into the vault (the task states of
+#     note/: [a] [d] [x]) and switch them on while Obsidian is open. The copies are overwritten.
+try {
+    & (Join-Path $repo 'tools\Install-ObsidianSnippets.ps1')
+} catch {
+    Write-Warning "tools\Install-ObsidianSnippets.ps1 failed: $($_.Exception.Message)"
+}
+
 # 9. AI agents (Claude Code, GitHub Copilot CLI), on the PCs that have them: the skills in
 #    ai\skills (one copy, shown to both through junctions) and the editor's language servers
 #    (clangd from Mason, rust-analyzer from rustup). Plugins and rust-analyzer are fetched,
-#    which -SkipPackages skips. Nothing on this PC is sent anywhere.
+#    which -SkipPackages skips. Nothing on this PC is sent anywhere. With a vault, the agents
+#    may read it from any repository, and a hook keeps its note/ read-only.
 try {
     & (Join-Path $repo 'tools\Install-AiAgents.ps1') -SkipPackages:$SkipPackages
 } catch {

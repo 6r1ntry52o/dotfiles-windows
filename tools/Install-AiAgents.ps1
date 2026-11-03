@@ -13,6 +13,12 @@
           Copilot CLI   ~/.copilot/lsp-config.json に、無いサーバの項目だけ足す（既存の項目は
                         変えない。書き換える前に .bak-日時 に退避する）
       - rust-analyzer: rustup がある PC で、そのコンポーネントを入れる（rust-analyzer-lsp が呼ぶ）
+      - vault（~/.dotfiles.json の vault がある PC）: どのリポで起動しても vault を読めるようにし、
+        note/ を守るフック（ai\hooks\note-guard.ps1）をつなぐ
+          Claude Code   ~/.claude/settings.json の permissions.additionalDirectories に vault、
+                        hooks.PreToolUse に note-guard（書き換える前に .bak-日時 に退避する）
+          Copilot CLI   ~/.copilot/hooks/note-guard.json（vault を読む許可は、最初に聞かれた時に
+                        与えればそのリポで覚える。全リポに効く設定は Copilot CLI に無い）
 
     clangd は Neovim の Mason が入れたものを使う（nvim を一度起動すると入る）。エディタと同じ版で、
     索引（.cache/clangd）も共有になる。エージェントからは、powershell/profile.ps1 が PATH の先頭に
@@ -24,12 +30,15 @@
 .PARAMETER SkipPackages
     取得を伴うもの（プラグイン・rust-analyzer）を飛ばし、スキルと設定だけ置く。
 
+.PARAMETER Vault
+    vault の場所。既定は ~/.dotfiles.json の vault（試す時に別の場所を渡す）。
+
 .EXAMPLE
     pwsh -File tools\Install-AiAgents.ps1
     入れたあと、新しいタブで claude か copilot を起動する（PATH が変わるため）
 #>
 [CmdletBinding()]
-param([switch]$SkipPackages)
+param([switch]$SkipPackages, [string]$Vault)
 
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
@@ -188,6 +197,106 @@ if ($hasCopilot) {
             $json = ($cfg | ConvertTo-Json -Depth 10) -replace "`r`n", "`n"
             [IO.File]::WriteAllText($cfgPath, $json + "`n", (New-Object Text.UTF8Encoding($false)))
             Write-Host "set      $cfgPath (+ $($added -join ', '))"
+        }
+    }
+}
+
+# vault: どのリポから起動しても読めるようにし、note/ を守るフックをつなぐ
+if (-not $Vault) {
+    $dotfilesJson = Join-Path $HOME '.dotfiles.json'
+    if (Test-Path $dotfilesJson) {
+        try { $Vault = (Get-Content $dotfilesJson -Raw -Encoding UTF8 | ConvertFrom-Json).vault } catch { }
+    }
+}
+$guard = (Join-Path $repo 'ai\hooks\note-guard.ps1') -replace '\\', '/'
+if (-not $Vault -or -not (Test-Path $Vault -PathType Container)) {
+    Write-Host 'skip     vault access and note-guard (no vault in ~/.dotfiles.json)'
+} else {
+    $vaultPath = (Resolve-Path $Vault).Path.TrimEnd('\')
+
+    # 読めない JSON は触らずに $null を返す（手で直してもらう）
+    function Read-JsonFile($path) {
+        if (-not (Test-Path $path)) { return [pscustomobject]@{} }
+        $raw = Get-Content $path -Raw -Encoding UTF8
+        if (-not $raw -or -not $raw.Trim()) { return [pscustomobject]@{} }
+        try { return ($raw | ConvertFrom-Json) } catch { return $null }
+    }
+    function Write-JsonFile($path, $obj) {
+        if (Test-Path $path) {
+            $backup = "$path.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+            Copy-Item $path $backup
+            Write-Host "backup   $path -> $backup"
+        }
+        New-Item -ItemType Directory -Force (Split-Path -Parent $path) | Out-Null
+        $json = ($obj | ConvertTo-Json -Depth 20) -replace "`r`n", "`n"
+        [IO.File]::WriteAllText($path, $json + "`n", (New-Object Text.UTF8Encoding($false)))
+    }
+    function Set-Property($obj, $name, $value) {
+        if ($obj.PSObject.Properties[$name]) { $obj.$name = $value }
+        else { $obj | Add-Member -NotePropertyName $name -NotePropertyValue $value }
+    }
+
+    # Claude Code: additionalDirectories は読むだけ許可なしで通す（書くのは権限モードのまま）。
+    # 書いたものだけ置き換えられるよう、note-guard.ps1 を呼ぶ項目を自分のものとみなす。
+    if ($hasClaude) {
+        $cfgPath = Join-Path $claudeHome 'settings.json'
+        $cfg = Read-JsonFile $cfgPath
+        if (-not $cfg) {
+            Write-Warning "cannot read $cfgPath as JSON; add the vault and note-guard by hand (see README.md)"
+        } else {
+            $before = $cfg | ConvertTo-Json -Depth 20 -Compress
+            if (-not $cfg.PSObject.Properties['permissions']) { Set-Property $cfg 'permissions' ([pscustomobject]@{}) }
+            $dirs = @($cfg.permissions.additionalDirectories | Where-Object { $_ })
+            if (-not ($dirs | Where-Object { $_.TrimEnd('\', '/').Replace('/', '\') -eq $vaultPath })) { $dirs += $vaultPath }
+            Set-Property $cfg.permissions 'additionalDirectories' $dirs
+
+            if (-not $cfg.PSObject.Properties['hooks']) { Set-Property $cfg 'hooks' ([pscustomobject]@{}) }
+            $mine = { param($entry) @($entry.hooks | Where-Object { "$($_.command) $($_.args -join ' ')" -match 'note-guard\.ps1' }).Count -gt 0 }
+            $pre = @($cfg.hooks.PreToolUse | Where-Object { $_ -and -not (& $mine $_) })
+            $hookArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $guard, '-Format', 'claude')
+            $handler = { param($if) $h = [ordered]@{ type = 'command' }; if ($if) { $h['if'] = $if }; $h['command'] = 'powershell.exe'; $h['args'] = $hookArgs; $h['timeout'] = 15; [pscustomobject]$h }
+            # シェルは note を含むコマンドの時だけ呼ぶ（毎回 PowerShell を起こすと遅い）
+            $pre += [pscustomobject]@{ matcher = 'Edit|Write|MultiEdit|NotebookEdit'; hooks = @(& $handler $null) }
+            $pre += [pscustomobject]@{ matcher = 'Bash'; hooks = @(& $handler 'Bash(*note*)') }
+            $pre += [pscustomobject]@{ matcher = 'PowerShell'; hooks = @(& $handler 'PowerShell(*note*)') }
+            Set-Property $cfg.hooks 'PreToolUse' $pre
+
+            if (($cfg | ConvertTo-Json -Depth 20 -Compress) -eq $before) {
+                Write-Host "ok       $cfgPath (vault, note-guard)"
+            } else {
+                Write-JsonFile $cfgPath $cfg
+                Write-Host "set      $cfgPath (additionalDirectories += $vaultPath, PreToolUse note-guard)"
+            }
+        }
+    }
+
+    # Copilot CLI: ユーザーのフックは ~/.copilot/hooks/*.json。このファイルは丸ごと install.ps1 のもの。
+    # PreToolUse（Claude 互換の形）で受けると、PowerShell の呼び出しも Bash の名前で届く。
+    # clone を移して note-guard.ps1 が無くなっても、Copilot の操作を止めない（フックの失敗は拒否になるため）。
+    if ($hasCopilot) {
+        $hookPath = Join-Path $copilotHome 'hooks\note-guard.json'
+        $quoted = $guard -replace "'", "''"
+        $body = [ordered]@{
+            version = 1
+            hooks   = [ordered]@{
+                PreToolUse = @([ordered]@{
+                        type       = 'command'
+                        matcher    = 'Bash|Edit|Write'
+                        powershell = "if (Test-Path -LiteralPath '$quoted') { & '$quoted' -Format copilot }"
+                        timeoutSec = 15
+                    })
+            }
+        }
+        $json = (($body | ConvertTo-Json -Depth 10) -replace "`r`n", "`n") + "`n"
+        # 中身で比べる（5.1 と 7 で ConvertTo-Json の字面が違う）
+        $current = $null
+        if (Test-Path $hookPath) { try { $current = Get-Content $hookPath -Raw -Encoding UTF8 | ConvertFrom-Json | ConvertTo-Json -Depth 10 -Compress } catch { } }
+        if ($current -eq ($body | ConvertTo-Json -Depth 10 -Compress)) {
+            Write-Host "ok       $hookPath"
+        } else {
+            New-Item -ItemType Directory -Force (Split-Path -Parent $hookPath) | Out-Null
+            [IO.File]::WriteAllText($hookPath, $json, (New-Object Text.UTF8Encoding($false)))
+            Write-Host "set      $hookPath"
         }
     }
 }
