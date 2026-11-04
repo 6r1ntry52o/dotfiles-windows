@@ -48,6 +48,11 @@ hand. If `lazymsbuild` is not on `PATH`, say so; do not install anything.
   is not UTF-8, stop and ask the user how to make the change.
 - To see the encodings in a tree (read-only), when `DOTFILES` is set:
   `pwsh -File "$env:DOTFILES\tools\Survey-Encoding.ps1" -Path <folder>`.
+- clangd reads sources as UTF-8. In a CP932 header, a `//` comment that ends in a character whose
+  second byte is `\` (表, 能, ソ, …) hides the next line from clangd, so its errors there can be
+  false. `"$env:DOTFILES\tools\bin\utf8-mirror.exe" status` lists the repositories where clangd
+  reads UTF-8 copies instead (Neovim turns this on). Elsewhere, trust the MSVC build over clangd,
+  and never edit comments to please clangd.
 
 ## Keep it local
 

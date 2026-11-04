@@ -18,6 +18,8 @@
 --      （DB が 2 つあると、clangd が古い方を読み続けることがある）。
 --   3. lazymsbuild がある PC: clangd がどの構成（Debug|x64 など）で解析しているかを出す
 --      （ステータスラインと <leader>mi。本体は config/clangd_profile.lua）。
+--   4. CP932 のソースを clangd に UTF-8 で見せる（lazymsbuild の有無によらない。
+--      本体は config/utf8_mirror.lua と tools/cp932/Utf8Mirror.cs）。
 
 ---ツール本体を探す。順番は Microsoft のスキルと同じ: PATH → <root>\.tools → %LOCALAPPDATA%。
 ---会社PCでは .tools\ に置く運用でも同じコマンドが動くように、3 か所見る。
@@ -212,6 +214,7 @@ return {
     optional = true,
     -- init は起動時に走る（プラグイン本体のロードとは別）＝C++ を開く前でもコマンドは使える
     init = function()
+      require("config.utf8_mirror").setup()
       if vim.fn.executable("lazymsbuild") == 1 then
         -- :CompileCommands は plugins/lazymsbuild.lua が定義する（lazymsbuild sync）
         vim.api.nvim_create_autocmd("FileType", {

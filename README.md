@@ -27,6 +27,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 6 | `%LOCALAPPDATA%\nvim` を `nvim/` への junction にする（既存は `nvim.bak-日時` に退避） |
 | 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用） |
 | 7b | `tools/bin/cp932-to-utf8.exe` をビルドし、`%LOCALAPPDATA%\lazygit\config.yml` に差分の表示フィルタとして書く（下の「文字コード」。自分で書いた `config.yml` があれば触らず、足す内容を警告で出す。clone 先を移したら流し直す） |
+| 7c | `tools/bin/utf8-mirror.exe` をビルドする（CP932 のソースを clangd に UTF-8 で見せる＝下の「CP932 のソースと clangd」。有効にするのは Neovim） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
 | 8b | `obsidian/snippets/*.css`（note/ のチェックボックスの状態の見た目）を vault の `.obsidian/snippets` に写し、Obsidian が開いていれば有効にする（下の「Obsidian」） |
 | 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする。vault がある PC では、どのリポから起動しても vault を読めるようにし、note/ を守るフックをつなぐ（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
@@ -224,6 +225,7 @@ CP932 と UTF-8 が混ざったツリーを、そのまま読み書きする。
 | 日本語で grep が当たらない | `<leader>sJ`。既定の `<leader>sg` は UTF-8 のファイルにしか当たらない |
 | lazygit の差分が化ける | `install.ps1` が直す（行ごとに判定するので混在してもよい）。行ステージの画面は化けたまま＝ステージする内容を変えないため（CP932 のまま index に入る） |
 | 保存で文字コードを変えたい | 既定は読んだ文字コードのまま書き戻す。変える時だけ `:EncToUtf8` / `:EncToSjis` |
+| clangd が CP932 のヘッダを読み違える（無いはずのエラー・定義に飛べない・列がずれる） | 自動（CP932 の C/C++ を開いたリポで、UTF-8 に直した写しを clangd に見せる）＝下の「CP932 のソースと clangd」 |
 | `:make` や quickfix の出力が化ける | その場で `:set makeencoding=char` |
 | プロジェクト全体の内訳を知りたい | `pwsh -File tools\Survey-Encoding.ps1 -Path <フォルダ>`（読み取り専用） |
 
@@ -239,7 +241,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 |---|---|
 | 実装に飛びたい | `Ctrl+Enter`。override があればそこへ（複数なら一覧）、無ければ定義へ。型名の上では型の定義へ |
 | 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`）。`gI` は仮想関数と派生クラスにしか効かない（clangd の仕様） |
-| 実装に飛ばず、ヘッダの宣言で止まる | ① `compile_commands.json` が無いか、中身が空か（プロジェクトの読み込みでビルドが失敗した時も、空の DB が置かれた。`lazymsbuild check` の `coverage` が `0/…`。`Ctrl+Enter` がその時に知らせる）、インデックスの作成中 ② CP932 のソースで、行末がダメ文字（`表` `ソ` など 2 バイト目が `\`）のコメントの次の行は clangd に見えない（下の注） |
+| 実装に飛ばず、ヘッダの宣言で止まる | ① `compile_commands.json` が無いか、中身が空か（プロジェクトの読み込みでビルドが失敗した時も、空の DB が置かれた。`lazymsbuild check` の `coverage` が `0/…`。`Ctrl+Enter` がその時に知らせる）、インデックスの作成中 ② CP932 の `.cpp` で、行末がダメ文字（`表` `能` など 2 バイト目が `\`）のコメントの直後の定義は、そのファイルを開くまで飛べない（下の「CP932 のソースと clangd」） |
 | ソースとヘッダを行き来したい | `<leader>ch` |
 | 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
 | ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
@@ -250,7 +252,6 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 
 `:CompileCommands` は `lazymsbuild sync`。ビルドせずに、リポのルートの `compile_commands.json` を作り直す。以後は lazymsbuild でビルドするたびに DB が追従する。
 
-- ②は clangd がソースを UTF-8 として読むため。`// 表` の `\` が行継続になり、次の行の定義がコメントに飲まれる。コメントの末尾に文字を足せば直る
 - 前の `:CompileCommands` が作った `<.sln のある所>\build\compile_commands.json` が残っていると、C/C++ を開いた時に消すか聞かれる（DB が 2 つあると clangd が古い方を読むことがある）
 - lazymsbuild が PATH に無い PC では、`:CompileCommands` は前のまま（抽出ツールを直接呼んで `<ルート>\build\compile_commands.json` を作る。抽出ツールの導入は `pwsh -File tools\Install-MsbuildExtractor.ps1`）
 - lazymsbuild を上げる時は `install.ps1` を流す（最新のリリースが入る。裏で自動更新はしない）。特定の版にする時は `pwsh -File tools\Install-Lazymsbuild.ps1 -Version <タグ> -Sha256 <SHA256SUMS の SHA256>`。次に `install.ps1` を流すと最新に戻る
@@ -269,6 +270,32 @@ clangd は `compile_commands.json` が変わっても、開いているファイ
 - `<leader>mi` は同じことを、決め手の引数（`/MDd` `_DEBUG` など）と一緒に出す。ヘッダは、どの `.cpp` のコマンドを借りているかも出る
 - 目で確かめるなら、`#ifdef _DEBUG` の中は Release で解析されている時にコメントの色になる（clangd が無効な区間をコメントとして送る）
 - 仕組み: 公開中の DB は lazymsbuild に聞く（`lazymsbuild check`）。clangd の側は、clangd がファイルを解析するたびに出すログの実際の引数を、lazymsbuild が構成ごとに持つ DB の同じファイルの項目と突き合わせる。エディタの層の機能なので、lazymsbuild 本体ではなくここに置いている
+
+#### CP932 のソースと clangd
+
+clangd はソースを UTF-8 として読む。CP932 のヘッダでは、行末が `表` `能` `ソ` など 2 バイト目が `\` の文字のコメントが行継続になり、次の行（宣言・メンバ・`#endif`）が clangd から消える（無いはずのエラーが出る・定義に飛べない）。日本語より後ろの列もずれ、UTF-16 のヘッダは読めない。MSVC は CP932 として読むので、ビルドは通る。
+
+そこで、UTF-8 に直した写しを、元のパスのまま clangd に見せる（clang の VFS overlay）。ソースは変えず、リポにも何も書かない。
+
+| いつ | 何が起きる |
+|---|---|
+| CP932 の C/C++ を開いた時・保存した時 | そのリポ（`.git` か `.svn` のある所、無ければ `compile_commands.json` のある所）で有効にし、clangd を再起動する（1 回だけ通知が出る） |
+| 有効なリポで C/C++ を開いた時・フォーカスが戻った時・lazygit などのターミナルを閉じた時 | 写しを今のソースに合わせる（裏で。更新日時と大きさが変わったファイルだけ読む） |
+| 有効なリポで C/C++ を保存した時 | そのファイルの写しを替えてから、clangd に保存を知らせる（40 ms ほど待つ） |
+
+| コマンド | 動作 |
+|---|---|
+| `:Utf8Mirror` | 今のリポで使っているか・写しの件数 |
+| `:Utf8Mirror on` / `off` | 手で有効にする / 外す（clangd の設定の節と写しを消し、clangd を再起動） |
+| `:Utf8Mirror sync` | 写しを今すぐ合わせる（Neovim の外で大きく変えた後） |
+
+- 置き場: 写しと overlay は `%LOCALAPPDATA%\utf8-mirror\<フォルダ名>-<ハッシュ>`（その PC の中だけ）。clangd への指定は `%LOCALAPPDATA%\clangd\config.yaml` のリポごとの節（`# >>> utf8-mirror <リポ>`。他の内容は触らない）。AI エージェントの clangd にも効く
+- MSVC の `/source-charset:…`・`/execution-charset:…` は、そのリポでは clangd に渡さない（clang は UTF-8 しか受け付けず、全ファイルの 1 行目がエラーになる）
+- 限界 1: clangd の裏のインデックスは `.cpp` 本体を写しでなくディスクから読む（写しが効くのは `#include` されるファイル）。行末がダメ文字のコメントの直後にある `.cpp` の定義は、別のファイルからはヘッダの宣言に飛ぶ。その `.cpp` を一度開くと飛べる（開いたファイルはエディタが渡す UTF-8 で解析する。閉じた後も、同じ clangd の間は飛べた）
+- 限界 2: clangd を起動するたびに、そのリポのインデックスを裏で作り直す（作る時は写しで読み、起動時の「変わったか」の確認はディスクの CP932 で読むため、毎回「変わった」になる）。その間も前のインデックスで飛べるが、CPU を使う
+- 限界 3: 写すのはリポの中だけ。リポの外の include フォルダ（別の場所の共通ライブラリなど）にある CP932 のヘッダは、今までどおり読み違える
+- Neovim を開いていない間にソースが変わると（git pull など）、次に Neovim で C/C++ を開くかフォーカスが戻るまで写しは古いまま
+- 仕組みの詳細は `tools/cp932/Utf8Mirror.cs` の冒頭。手で使う時は `tools\bin\utf8-mirror.exe enable|sync|disable <リポ>`・`status`
 
 ### AI エージェント（Claude Code・GitHub Copilot CLI）
 
@@ -335,12 +362,12 @@ dotfiles-windows/
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
 │   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・jump（Ctrl+Enter）・newnote（新規ノートの場所）・wezterm・
-│   │                        clangd_profile（clangd がどの構成で解析しているか）
+│   │                        clangd_profile（clangd がどの構成で解析しているか）・utf8_mirror（CP932 のソースを clangd に UTF-8 で見せる）
 │   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
 │   ├── lazy-lock.json       プラグインの版の固定
 │   └── lazyvim.json         入れた extras
 ├── tools/                   Survey-Encoding.ps1・Install-Lazymsbuild.ps1・Install-MsbuildExtractor.ps1・Install-AiAgents.ps1・
-│                            ime/Ime.cs・cp932/Cp932ToUtf8.cs（→ bin/*.exe・git 管理外）
+│                            ime/Ime.cs・cp932/Cp932ToUtf8.cs・cp932/Utf8Mirror.cs（→ bin/*.exe・git 管理外）
 ├── google-ime/              Google 日本語入力の設定と Export / Restore
 └── keychron/                キーマップのバックアップと Windows 側の設定スクリプト
 ```
@@ -359,6 +386,7 @@ dotfiles-windows/
 - `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` の `lazy` と `mason` を消す（`nvim-data` ごと消すと Recent Files・Projects・セッション・undo の履歴も消える）
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
 - Obsidian の Vim IM Select を無効化する
+- CP932 の写しは、使っているリポごとに `tools\bin\utf8-mirror.exe disable <リポ>`（一覧は `utf8-mirror status`）。`%LOCALAPPDATA%\clangd\config.yaml` の節と `%LOCALAPPDATA%\utf8-mirror` の写しが消える
 - lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
 - vault 関係は `~/.claude/settings.json` の `hooks.PreToolUse` から `note-guard.ps1` を呼ぶ 3 項目・`fileSuggestion`・`permissions.additionalDirectories` の vault を消し（`.bak-*` があれば戻す）、`~/.copilot/hooks/note-guard.json` を消す。CSS は Obsidian の設定で切って `<vault>/.obsidian/snippets/vault-task-status.css` を消す
 - AI エージェントは `cmd /c rmdir %USERPROFILE%\.claude\skills\msbuild-cpp` と `cmd /c rmdir %USERPROFILE%\.copilot\skills\msbuild-cpp`（`vault-note` も同じ・junction だけ外れる）、`~/.copilot/lsp-config.json` から `clangd`・`rust-analyzer` の項目を消す（`.bak-*` があれば戻す）、`claude plugin uninstall clangd-lsp@claude-plugins-official`（`rust-analyzer-lsp` も）、`rustup component remove rust-analyzer`

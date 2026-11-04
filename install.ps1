@@ -362,6 +362,26 @@ if (Test-Path $filterOut) {
     }
 }
 
+# 7c. clangd: let it read CP932 (and UTF-16) sources through UTF-8 copies (see tools/cp932/Utf8Mirror.cs).
+#     Only builds the tool. Neovim turns it on per repository when a CP932 C/C++ file is opened
+#     (nvim/lua/config/utf8_mirror.lua), which writes the copies under %LOCALAPPDATA%\utf8-mirror and a
+#     section of %LOCALAPPDATA%\clangd\config.yaml.
+$mirrorSrc = Join-Path $repo 'tools\cp932\Utf8Mirror.cs'
+$mirrorOut = Join-Path $repo 'tools\bin\utf8-mirror.exe'
+if (-not (Test-Path $csc)) {
+    Write-Warning "csc.exe not found at $csc. Skipping utf8-mirror.exe."
+} elseif ((Test-Path $mirrorOut) -and ((Get-Item $mirrorOut).LastWriteTime -ge (Get-Item $mirrorSrc).LastWriteTime)) {
+    Write-Host "ok       $mirrorOut"
+} else {
+    New-Item -ItemType Directory -Force (Split-Path -Parent $mirrorOut) | Out-Null
+    & $csc /nologo /optimize "/out:$mirrorOut" $mirrorSrc
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "csc failed (exit $LASTEXITCODE)"
+    } else {
+        Write-Host "built    $mirrorOut"
+    }
+}
+
 # 8. Per-PC values: write ~/.dotfiles.json from the template when it is missing.
 #    Everything that differs between machines (the Obsidian vault path, display
 #    tweaks) lives there, so this repo stays machine-independent and can be cloned
