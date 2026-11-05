@@ -7,7 +7,7 @@
 // まま置きたい（2026-11-04 に clangd 23.1 で実測。nvim/lua/config/utf8_mirror.lua が呼ぶ）。
 //
 // 置き場（リポには何も書かない）:
-//   %LOCALAPPDATA%\utf8-mirror\<フォルダ名>-<ハッシュ>\files\…     写し（リポからの相対パス）
+//   %LOCALAPPDATA%\utf8-mirror\<フォルダ名>-<ハッシュ>\files\…     写し（リポからの相対パス。フォルダ名は 200 文字まで）
 //                                                   \overlay.json  clang の VFS overlay
 //                                                   \index.tsv     前回の判定（更新日時と大きさが同じファイルは読まない）
 //   %LOCALAPPDATA%\clangd\config.yaml の「# >>> utf8-mirror <root>」の節
@@ -26,7 +26,9 @@
 //   %LOCALAPPDATA%\utf8-mirror\…\files\ の分だけ元より長くなるので、元が 260 文字に収まっていても越える。
 //   OS の LongPathsEnabled には頼らない（csc の exe は longPathAware を宣言しないので、どのみち効かない）。
 //   .NET Framework が \\?\ を受け付けるのは 4.6.2 以降の扱い＝下の TargetFramework（無いと 4.0 の扱いになり、
-//   \\?\ を付けても PathTooLongException。2026-11-05 に実測）。clangd（LLVM）は長いパスを自分で扱える
+//   \\?\ を付けても PathTooLongException。2026-11-05 に実測）。clangd（LLVM）は長いパスを自分で扱える。
+//   名前 1 つは \\?\ でも 255 文字まで（NTFS）なので、こちらで作る名前（一時ファイル・置き場・排他の名前）は
+//   元の名前より長くしない
 //
 // 使い方:
 //   utf8-mirror enable <root>              写しを作り、clangd の設定に節を足す
@@ -183,6 +185,21 @@ internal static class Utf8Mirror
         return path.StartsWith(@"\\?\") ? path.Substring(4) : path;
     }
 
+    private static string Hash8(string s)
+    {
+        using (var sha = SHA1.Create())
+        {
+            byte[] hash = sha.ComputeHash(Utf8.GetBytes(s));
+            return BitConverter.ToString(hash, 0, 4).Replace("-", "").ToLowerInvariant();
+        }
+    }
+
+    // リポの印（置き場の名前と排他の名前に使う）
+    private static string RootHash(string root)
+    {
+        return Hash8(Slash(root).ToLowerInvariant());
+    }
+
     private static string StateDir(string state, string root)
     {
         var name = new StringBuilder();
@@ -190,11 +207,9 @@ internal static class Utf8Mirror
         {
             name.Append(c < 0x80 && (char.IsLetterOrDigit(c) || c == '-' || c == '_' || c == '.') ? c : '_');
         }
-        using (var sha = SHA1.Create())
-        {
-            byte[] hash = sha.ComputeHash(Utf8.GetBytes(Slash(root).ToLowerInvariant()));
-            return Path.Combine(state, name + "-" + BitConverter.ToString(hash, 0, 4).Replace("-", "").ToLowerInvariant());
-        }
+        // 名前 1 つは 255 文字まで。フォルダ名が長いリポは頭の 200 文字だけ使う（区別はハッシュでつく）
+        if (name.Length > 200) name.Length = 200;
+        return Path.Combine(state, name + "-" + RootHash(root));
     }
 
     // 一覧を取れなかったフォルダは errors に足す（黙って飛ばすと、その下のヘッダが写されないまま気づけない）。
@@ -272,7 +287,8 @@ internal static class Utf8Mirror
             if (old.Length == data.Length && old.SequenceEqual(data)) return false;
         }
         Directory.CreateDirectory(Long(Path.GetDirectoryName(path)));
-        string tmp = path + ".tmp";
+        // <名前>.tmp にしない（255 文字の名前だと上限を越える）
+        string tmp = Path.Combine(Path.GetDirectoryName(path), "~" + Hash8(Path.GetFileName(path).ToLowerInvariant()) + ".tmp");
         File.WriteAllBytes(Long(tmp), data);
         Replace(tmp, path);
         return true;
@@ -607,7 +623,8 @@ internal static class Utf8Mirror
             string stateDir = StateDir(o.State, root);
             string overlay = Path.Combine(stateDir, "overlay.json");
             // 同じリポを 2 つが同時に触らない（保存とフォーカスの復帰が重なる時）
-            using (var mutex = new Mutex(false, "Local\\utf8-mirror-" + Path.GetFileName(stateDir)))
+            // 名前は 260 文字まで（置き場の名前だと長いフォルダ名で越える）
+            using (var mutex = new Mutex(false, "Local\\utf8-mirror-" + RootHash(root)))
             {
                 bool owned = false;
                 try
