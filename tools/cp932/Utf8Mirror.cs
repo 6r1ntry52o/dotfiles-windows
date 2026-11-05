@@ -22,6 +22,12 @@
 // 限界: clangd の裏のインデックスは、.cpp 本体を overlay を通さずにディスクから読む（overlay が効くのは
 //   #include されるファイルだけ）。開いているファイルはエディタが UTF-8 で渡すので問題ない。
 //
+// 長いパス（260 文字以上）: ファイルに触る所はすべて \\?\ を付けて呼ぶ（Long）。写しのパスは
+//   %LOCALAPPDATA%\utf8-mirror\…\files\ の分だけ元より長くなるので、元が 260 文字に収まっていても越える。
+//   OS の LongPathsEnabled には頼らない（csc の exe は longPathAware を宣言しないので、どのみち効かない）。
+//   .NET Framework が \\?\ を受け付けるのは 4.6.2 以降の扱い＝下の TargetFramework（無いと 4.0 の扱いになり、
+//   \\?\ を付けても PathTooLongException。2026-11-05 に実測）。clangd（LLVM）は長いパスを自分で扱える
+//
 // 使い方:
 //   utf8-mirror enable <root>              写しを作り、clangd の設定に節を足す
 //   utf8-mirror sync <root> [--file F]...  写しを今のソースに合わせる（--file があれば F だけ見る）
@@ -39,6 +45,8 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
+
+[assembly: System.Runtime.Versioning.TargetFramework(".NETFramework,Version=v4.6.2")]
 
 internal static class Utf8Mirror
 {
@@ -160,6 +168,21 @@ internal static class Utf8Mirror
         return path.Replace('\\', '/');
     }
 
+    // ファイルに触る時のパス（\\?\ 付き。冒頭の「長いパス」）。\\?\ は正規化されないので先に絶対パスにする
+    private static string Long(string path)
+    {
+        if (path.StartsWith(@"\\?\")) return path;
+        string full = Path.GetFullPath(path);
+        return full.StartsWith(@"\\") ? @"\\?\UNC\" + full.Substring(2) : @"\\?\" + full;
+    }
+
+    // Long の逆（一覧で返ってきたパスを、元のパスの形に戻す）
+    private static string Short(string path)
+    {
+        if (path.StartsWith(@"\\?\UNC\")) return @"\\" + path.Substring(8);
+        return path.StartsWith(@"\\?\") ? path.Substring(4) : path;
+    }
+
     private static string StateDir(string state, string root)
     {
         var name = new StringBuilder();
@@ -174,7 +197,9 @@ internal static class Utf8Mirror
         }
     }
 
-    private static IEnumerable<string> Walk(string root)
+    // 一覧を取れなかったフォルダは errors に足す（黙って飛ばすと、その下のヘッダが写されないまま気づけない）。
+    // 権限の無いフォルダだけは今までどおり黙って飛ばす
+    private static IEnumerable<string> Walk(string root, List<string> errors)
     {
         var stack = new Stack<string>();
         stack.Push(root);
@@ -184,11 +209,15 @@ internal static class Utf8Mirror
             string[] subdirs, files;
             try
             {
-                subdirs = Directory.GetDirectories(dir);
-                files = Directory.GetFiles(dir);
+                subdirs = Directory.GetDirectories(Long(dir)).Select(Short).ToArray();
+                files = Directory.GetFiles(Long(dir)).Select(Short).ToArray();
             }
             catch (UnauthorizedAccessException) { continue; }
-            catch (IOException) { continue; }
+            catch (IOException e)
+            {
+                errors.Add((dir.Length > root.Length ? Slash(dir.Substring(root.Length + 1)) : ".") + "/: " + e.Message);
+                continue;
+            }
             foreach (string f in files)
             {
                 if (Extensions.Contains(Path.GetExtension(f))) yield return f;
@@ -200,7 +229,7 @@ internal static class Utf8Mirror
                 if (name.StartsWith(".") || name.Equals("node_modules", StringComparison.OrdinalIgnoreCase)) continue;
                 try
                 {
-                    if ((File.GetAttributes(d) & FileAttributes.ReparsePoint) != 0) continue;
+                    if ((File.GetAttributes(Long(d)) & FileAttributes.ReparsePoint) != 0) continue;
                 }
                 catch (IOException) { continue; }
                 catch (UnauthorizedAccessException) { continue; }
@@ -218,8 +247,8 @@ internal static class Utf8Mirror
         {
             try
             {
-                if (File.Exists(dest)) File.Replace(tmp, dest, null);
-                else File.Move(tmp, dest);
+                if (File.Exists(Long(dest))) File.Replace(Long(tmp), Long(dest), null);
+                else File.Move(Long(tmp), Long(dest));
                 return;
             }
             catch (IOException)
@@ -237,14 +266,14 @@ internal static class Utf8Mirror
     // 中身が同じなら書かない（更新日時が変わると clangd が読み直す）。書いたら true
     private static bool WriteIfChanged(string path, byte[] data)
     {
-        if (File.Exists(path))
+        if (File.Exists(Long(path)))
         {
-            byte[] old = File.ReadAllBytes(path);
+            byte[] old = File.ReadAllBytes(Long(path));
             if (old.Length == data.Length && old.SequenceEqual(data)) return false;
         }
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
+        Directory.CreateDirectory(Long(Path.GetDirectoryName(path)));
         string tmp = path + ".tmp";
-        File.WriteAllBytes(tmp, data);
+        File.WriteAllBytes(Long(tmp), data);
         Replace(tmp, path);
         return true;
     }
@@ -252,8 +281,8 @@ internal static class Utf8Mirror
     private static Dictionary<string, Entry> LoadIndex(string path)
     {
         var index = new Dictionary<string, Entry>(StringComparer.OrdinalIgnoreCase);
-        if (!File.Exists(path)) return index;
-        foreach (string line in File.ReadAllLines(path, Utf8))
+        if (!File.Exists(Long(path))) return index;
+        foreach (string line in File.ReadAllLines(Long(path), Utf8))
         {
             string[] f = line.Split('\t');
             long ticks, size;
@@ -355,7 +384,7 @@ internal static class Utf8Mirror
         else
         {
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var all = Walk(root).ToList();
+            var all = Walk(root, result.Errors).ToList();
             foreach (string f in all) seen.Add(Slash(f.Substring(root.Length + 1)));
             foreach (string gone in index.Keys.Where(k => !seen.Contains(k)).ToList()) index.Remove(gone);
             targets = all;
@@ -368,7 +397,7 @@ internal static class Utf8Mirror
             string mirror = Path.Combine(filesDir, rel.Replace('/', '\\'));
             try
             {
-                var info = new FileInfo(file);
+                var info = new FileInfo(Long(file));
                 if (!info.Exists)
                 {
                     index.Remove(rel);
@@ -376,9 +405,9 @@ internal static class Utf8Mirror
                 }
                 Entry entry;
                 bool known = index.TryGetValue(rel, out entry) && entry.Ticks == info.LastWriteTimeUtc.Ticks && entry.Size == info.Length;
-                if (known && (entry.Kind == 'u' || entry.Kind == 'x' || File.Exists(mirror))) continue;
+                if (known && (entry.Kind == 'u' || entry.Kind == 'x' || File.Exists(Long(mirror)))) continue;
                 string text;
-                char kind = Classify(File.ReadAllBytes(file), out text);
+                char kind = Classify(File.ReadAllBytes(Long(file)), out text);
                 if (text != null && WriteIfChanged(mirror, Utf8.GetBytes(text)))
                 {
                     if (before.Contains(rel)) result.Updated++;
@@ -398,7 +427,7 @@ internal static class Utf8Mirror
 
         var after = index.Where(kv => kv.Value.Kind == 's' || kv.Value.Kind == 'w').Select(kv => kv.Key).ToList();
         result.Mirrored = after.Count;
-        Directory.CreateDirectory(dir);
+        Directory.CreateDirectory(Long(dir));
         WriteIfChanged(Path.Combine(dir, "overlay.json"), Utf8.GetBytes(BuildOverlay(root, after)));
 
         // overlay から外した後に写しを消す
@@ -408,7 +437,7 @@ internal static class Utf8Mirror
             string mirror = Path.Combine(filesDir, rel.Replace('/', '\\'));
             try
             {
-                if (File.Exists(mirror)) File.Delete(mirror);
+                if (File.Exists(Long(mirror))) File.Delete(Long(mirror));
                 result.Removed++;
             }
             catch (IOException e)
@@ -464,7 +493,7 @@ internal static class Utf8Mirror
     // root の節を差し替える（block が null なら外す）。他の内容は触らない
     private static void SetBlock(string config, string root, string overlay)
     {
-        string text = File.Exists(config) ? File.ReadAllText(config, Utf8) : "";
+        string text = File.Exists(Long(config)) ? File.ReadAllText(Long(config), Utf8) : "";
         string nl = text.Contains("\r\n") ? "\r\n" : "\n";
         var lines = text.Replace("\r\n", "\n").Split('\n').ToList();
         string begin = Begin + Slash(root), end = End + Slash(root);
@@ -481,7 +510,7 @@ internal static class Utf8Mirror
         {
             if (rest.Trim().Length == 0)
             {
-                if (File.Exists(config)) File.Delete(config);
+                if (File.Exists(Long(config))) File.Delete(Long(config));
                 return;
             }
             rest += nl;
@@ -490,15 +519,15 @@ internal static class Utf8Mirror
         {
             rest = (rest.Length > 0 ? rest + nl : "") + Block(root, overlay, nl);
         }
-        Directory.CreateDirectory(Path.GetDirectoryName(config));
+        Directory.CreateDirectory(Long(Path.GetDirectoryName(config)));
         WriteIfChanged(config, Utf8.GetBytes(rest));
     }
 
     private static List<string> EnabledRoots(string config)
     {
         var roots = new List<string>();
-        if (!File.Exists(config)) return roots;
-        foreach (string line in File.ReadAllLines(config, Utf8))
+        if (!File.Exists(Long(config))) return roots;
+        foreach (string line in File.ReadAllLines(Long(config), Utf8))
         {
             if (line.StartsWith(Begin)) roots.Add(line.Substring(Begin.Length).Trim());
         }
@@ -574,7 +603,7 @@ internal static class Utf8Mirror
             }
 
             string root = Normalize(o.Root);
-            if (!Directory.Exists(root)) throw new DirectoryNotFoundException(root);
+            if (!Directory.Exists(Long(root))) throw new DirectoryNotFoundException(root);
             string stateDir = StateDir(o.State, root);
             string overlay = Path.Combine(stateDir, "overlay.json");
             // 同じリポを 2 つが同時に触らない（保存とフォーカスの復帰が重なる時）
@@ -596,7 +625,7 @@ internal static class Utf8Mirror
                     if (o.Command == "disable")
                     {
                         SetBlock(o.ClangdConfig, root, null);
-                        if (Directory.Exists(stateDir)) Directory.Delete(stateDir, true);
+                        if (Directory.Exists(Long(stateDir))) Directory.Delete(Long(stateDir), true);
                         Print(o.Json ? "{\"root\": " + JsonString(Slash(root)) + "}" : "disabled " + Slash(root));
                         return 0;
                     }
