@@ -143,6 +143,8 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 
 起動画面には上から Obsidian Vault（`~/.dotfiles.json` の `vault` と、Obsidian に登録されている vault）・Projects・Recent Files・Keymaps を出す。
 
+パスが長いファイル（およそ 250 文字以上。Windows の長いパスの設定が無効な PC では、およそ 210 文字以上）は、スワップファイルと undo ファイルを作らない。名前が Windows の上限を越えて作れず、開くたびに `E303`、保存のたびに `E828` が出ていたため（`nvim/lua/config/longpath.lua`）。そのファイルは、落ちた時に戻せず、閉じた後の undo も残らない。
+
 ### Obsidian
 
 `~/.dotfiles.json` の `vault` を設定した PC で、vault 内の md を開いた時だけ効く。
