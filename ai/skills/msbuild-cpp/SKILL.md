@@ -46,6 +46,13 @@ hand. If `lazymsbuild` is not on `PATH`, say so; do not install anything.
   UTF-8.
 - Never convert a file to UTF-8 to make an edit possible. If your editing tool refuses a file that
   is not UTF-8, stop and ask the user how to make the change.
+- To read a CP932 file that your reading tool shows as `�`, convert it for display only:
+  `"$DOTFILES/tools/bin/cp932-to-utf8.exe" < <file>` (line by line, so mixed files work; in
+  PowerShell wrap it in `cmd /c`), or `iconv -f CP932 -t UTF-8 <file>`.
+- In a repository whose sources are CP932, do not write Japanese or other non-ASCII text into a new
+  C/C++ file or one that is ASCII only: your tools write UTF-8 without a BOM, and MSVC reads such a
+  file as CP932 (comments and string literals break). Ask the user instead (their Neovim saves
+  these files as CP932).
 - To see the encodings in a tree (read-only), when `DOTFILES` is set:
   `pwsh -File "$env:DOTFILES\tools\Survey-Encoding.ps1" -Path <folder>`.
 - clangd reads sources as UTF-8. In a CP932 header, a `//` comment that ends in a character whose

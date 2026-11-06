@@ -231,10 +231,9 @@ local function fix_buf(ctx)
   return true
 end
 
--- 既定のファイルプレビュー＋上の直し。picker の `preview` に渡す。
--- 全部の picker に効かせたくなったら opts.picker.previewers ではなく
--- `Snacks.picker.preview.file` を差し替える必要があるので、ここでは grep だけ
--- （latin1 の実ファイルまで CP932 とみなして潰すのを避ける）。
+-- 既定のファイルプレビュー＋上の直し。picker 全体の `preview`（自分のプレビューを持たない
+-- source＝ファイル・explorer・grep・LSP の参照・quickfix など）に入れる（plugins/encoding.lua）。
+-- latin1 の実ファイルも CP932 とみなして直すが、この PC で UTF-8 でないテキストは CP932 なので構わない。
 ---@param ctx snacks.picker.preview.ctx
 function M.preview(ctx)
   local ret = Snacks.picker.preview.file(ctx)
@@ -245,8 +244,36 @@ function M.preview(ctx)
   return ret
 end
 
+---@param text string
+local function lines_to_utf8(text)
+  local lines = vim.split(text, "\n", { plain = true })
+  for i, line in ipairs(lines) do
+    lines[i] = M.to_utf8(line)
+  end
+  return table.concat(lines, "\n")
+end
+
+-- git の差分の hunk の一覧（<leader>gd）のプレビュー。hunk の本文（item.diff）は CP932 のまま持つ:
+-- <Tab> のステージは item.diff をそのまま git apply --cached に渡すので、直すと UTF-8 の行が
+-- CP932 のファイルの index に入る。見せる間だけ UTF-8 にした物に差し替える（プレビューは差し替えた
+-- 物をその場で読む。fancy・syntax・terminal のどれも）
+---@param ctx snacks.picker.preview.ctx
+function M.diff_preview(ctx)
+  local raw = ctx.item.diff
+  if type(raw) ~= "string" or M.is_utf8(raw) then
+    return Snacks.picker.preview.diff(ctx)
+  end
+  ctx.item.diff = lines_to_utf8(raw)
+  local ok, ret = pcall(Snacks.picker.preview.diff, ctx)
+  ctx.item.diff = raw
+  if not ok then
+    error(ret)
+  end
+  return ret
+end
+
 -- grep の picker（grep・grep_word・grep_buffers）の設定に足す分。
--- 検索語を 2 択に展開し、CP932 のまま出てきた行と右のプレビューを UTF-8 に直す
+-- 検索語を 2 択に展開し、CP932 のまま出てきた行を UTF-8 に直す（右のプレビューは M.preview）
 M.grep = {
   filter = {
     transform = function(picker, filter)
@@ -254,7 +281,6 @@ M.grep = {
     end,
   },
   transform = M.fix_item,
-  preview = M.preview,
 }
 
 return M

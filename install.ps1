@@ -382,18 +382,26 @@ if (-not (Test-Path $csc)) {
     }
 }
 
-# 7d. git: handle paths of 260 characters or more (core.longpaths in ~/.gitconfig). Without it git
-#     says "Filename too long" for them (status, add, checkout; lazygit and gitsigns in Neovim too).
-#     Set only when nothing sets it yet: a value you chose is left alone.
+# 7d. git, in ~/.gitconfig:
+#     core.longpaths=true  : paths of 260 characters or more. Without it git says "Filename too long"
+#                            for them (status, add, checkout; lazygit and gitsigns in Neovim too).
+#     core.quotepath=false : show Japanese file names as they are. Without it git status and git diff
+#                            print them as octal escapes ("\350\241\250.cpp").
+#     Each is set only when nothing sets it yet: a value you chose is left alone.
 if (Get-Command git -ErrorAction SilentlyContinue) {
-    $longPaths = git -C $repo config --get core.longpaths
-    if ($null -eq $longPaths) {
-        git config --global core.longpaths true
-        Write-Host "set      git core.longpaths true (global)"
-    } elseif ($longPaths -ne 'true') {
-        Write-Warning "git core.longpaths is '$longPaths': paths of 260 characters or more fail with 'Filename too long'."
-    } else {
-        Write-Host "ok       git core.longpaths"
+    foreach ($setting in @(
+        @{ Key = 'core.longpaths'; Value = 'true'; Why = "paths of 260 characters or more fail with 'Filename too long'" },
+        @{ Key = 'core.quotepath'; Value = 'false'; Why = 'Japanese file names are shown as octal escapes' }
+    )) {
+        $current = git -C $repo config --type=bool --get $setting.Key
+        if ($null -eq $current) {
+            git config --global $setting.Key $setting.Value
+            Write-Host "set      git $($setting.Key) $($setting.Value) (global)"
+        } elseif ($current -ne $setting.Value) {
+            Write-Warning "git $($setting.Key) is '$current': $($setting.Why)."
+        } else {
+            Write-Host "ok       git $($setting.Key)"
+        }
     }
 }
 

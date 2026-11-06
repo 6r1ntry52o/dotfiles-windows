@@ -43,6 +43,8 @@ end, {
 vim.api.nvim_create_user_command("EncToUtf8", function()
   vim.bo.fileencoding = "utf-8"
   vim.bo.bomb = false
+  -- CP932 のリポでも UTF-8 のまま書かせる（config/utf8_mirror.lua の「ASCII だけだったファイル」）
+  vim.b.dotfiles_ascii = false
   vim.cmd.write()
 end, { desc = "今のファイルを UTF-8（BOM なし）で保存し直す" })
 

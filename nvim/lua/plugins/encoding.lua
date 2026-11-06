@@ -43,15 +43,22 @@ return {
   --
   -- 2026-11-06 までは <leader>sJ に分けていた（--no-unicode で正規表現の意味が少し変わったため）。
   -- CP932 の側だけをバイト列で照合するようにしたので、既定の grep に入れた。
+  --
+  -- 右のプレビューも、素の snacks はファイルの生のバイト列を流し込む＝CP932 のファイルは化ける。
+  -- 自分のプレビューを持たない source（ファイル・explorer・grep・LSP の参照・quickfix・buffers など）は
+  -- 全部 picker 全体の preview を使うので、そこで直す。git の hunk の一覧（<leader>gd）は別に直す。
+  -- 直していないもの: git の show・diff を走らせるプレビュー（<leader>gs・gl・gf など）＝README の「文字コード」
   {
     "folke/snacks.nvim",
     opts = function(_, opts)
-      local grep = require("config.encoding").grep
+      local Enc = require("config.encoding")
       opts.picker = opts.picker or {}
+      opts.picker.preview = Enc.preview
       opts.picker.sources = opts.picker.sources or {}
       for _, name in ipairs({ "grep", "grep_word", "grep_buffers" }) do
-        opts.picker.sources[name] = vim.tbl_deep_extend("force", opts.picker.sources[name] or {}, grep)
+        opts.picker.sources[name] = vim.tbl_deep_extend("force", opts.picker.sources[name] or {}, Enc.grep)
       end
+      opts.picker.sources.git_diff = vim.tbl_deep_extend("force", opts.picker.sources.git_diff or {}, { preview = Enc.diff_preview })
     end,
   },
 }

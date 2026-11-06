@@ -228,8 +228,74 @@ local function command(a)
   end
 end
 
+-- CP932 のリポ（写しを使っているリポ）で、ASCII だけだった C/C++ と新しい C/C++ に日本語を足して保存する時は
+-- CP932 で書く。Neovim は ASCII だけのファイルを UTF-8 と判定する（ASCII は UTF-8 としても正しい）ので、
+-- そのままだと BOM なしの UTF-8 で書かれる。MSVC は BOM なしのソースを CP932 として読む＝日本語が化け、
+-- 行末の文字しだいで次の行が消え（C4819）、文字列リテラルのバイトも変わる。
+-- CP932 に無い文字（絵文字など）がある時は、UTF-8 の BOM 付きにする（MSVC は BOM で UTF-8 と分かる）。
+-- 前から日本語のある UTF-8 のファイル・自分で文字コードを決めたファイル（:EncToUtf8 など）は触らない。
+
+---読んだ時（と新しいファイル）に、ASCII だけかを覚えておく
+local function remember_ascii(buf)
+  local ascii = vim.bo[buf].fileencoding == "utf-8" or vim.bo[buf].fileencoding == ""
+  if ascii and not vim.bo[buf].bomb then
+    ascii = vim.api.nvim_buf_call(buf, function()
+      return vim.fn.search("[^\\x01-\\x7f]", "nw") == 0
+    end)
+  end
+  vim.b[buf].dotfiles_ascii = ascii and not vim.bo[buf].bomb
+end
+
+local function cp932_on_write(buf)
+  if not vim.b[buf].dotfiles_ascii or vim.bo[buf].bomb then
+    return
+  end
+  local fenc = vim.bo[buf].fileencoding
+  local root = (fenc == "utf-8" or fenc == "") and root_of(vim.api.nvim_buf_get_name(buf))
+  if not (root and load_enabled()[key(root)]) then
+    return
+  end
+  local text = table.concat(vim.api.nvim_buf_get_lines(buf, 0, -1, false), "\n")
+  if not text:find("[\128-\255]") then
+    return
+  end
+  vim.b[buf].dotfiles_ascii = false
+  -- CP932 に無い文字は、失敗ではなく "?" に潰れて返ってくる＝戻して同じかで見る
+  local sjis = vim.iconv(text, "utf-8", "cp932")
+  local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ":t")
+  if sjis and vim.iconv(sjis, "cp932", "utf-8") == text then
+    vim.bo[buf].fileencoding = "cp932"
+    vim.notify(
+      ("%s を CP932 で保存した（このリポは CP932・MSVC は BOM なしのソースを CP932 で読む）。UTF-8 にする＝:EncToUtf8"):format(name),
+      vim.log.levels.INFO,
+      { title = "文字コード" }
+    )
+  else
+    vim.bo[buf].bomb = true
+    vim.notify(
+      ("%s は CP932 に無い文字があるので、UTF-8 の BOM 付きで保存した（MSVC は BOM で UTF-8 と分かる）"):format(name),
+      vim.log.levels.WARN,
+      { title = "文字コード" }
+    )
+  end
+end
+
 function M.setup()
   local group = vim.api.nvim_create_augroup("dotfiles_utf8_mirror", { clear = true })
+  vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, {
+    group = group,
+    pattern = PATTERNS,
+    callback = function(ev)
+      remember_ascii(ev.buf)
+    end,
+  })
+  vim.api.nvim_create_autocmd("BufWritePre", {
+    group = group,
+    pattern = PATTERNS,
+    callback = function(ev)
+      cp932_on_write(ev.buf)
+    end,
+  })
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
     pattern = { "c", "cpp" },
