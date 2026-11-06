@@ -382,6 +382,21 @@ if (-not (Test-Path $csc)) {
     }
 }
 
+# 7d. git: handle paths of 260 characters or more (core.longpaths in ~/.gitconfig). Without it git
+#     says "Filename too long" for them (status, add, checkout; lazygit and gitsigns in Neovim too).
+#     Set only when nothing sets it yet: a value you chose is left alone.
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $longPaths = git -C $repo config --get core.longpaths
+    if ($null -eq $longPaths) {
+        git config --global core.longpaths true
+        Write-Host "set      git core.longpaths true (global)"
+    } elseif ($longPaths -ne 'true') {
+        Write-Warning "git core.longpaths is '$longPaths': paths of 260 characters or more fail with 'Filename too long'."
+    } else {
+        Write-Host "ok       git core.longpaths"
+    }
+}
+
 # 8. Per-PC values: write ~/.dotfiles.json from the template when it is missing.
 #    Everything that differs between machines (the Obsidian vault path, display
 #    tweaks) lives there, so this repo stays machine-independent and can be cloned

@@ -59,6 +59,39 @@ local function apply(buf)
   end
 end
 
+-- gitsigns は、リポの場所を知る前の git をファイルのフォルダで起動する。Windows は 259 文字以上のフォルダを
+-- 作業フォルダにしてプログラムを起動できない（CreateProcess の上限。LongPathsEnabled が有効でも同じ）ので、
+-- そこにあるファイルを開くたびに Lua のエラー（vim/_system.lua: ENOENT）が出ていた（2026-11-06 に実測）。
+-- そういうファイルだけ、リポ（.git）を Lua で探して gitsigns に渡す（git は Neovim の作業フォルダで動く）。
+-- リポの外なら無い .git を渡し、「リポではない」で静かに終わらせる。
+-- git 自身が長いパスを扱う設定（core.longpaths）は install.ps1 が入れる。plugins/gitsigns.lua が使う。
+local CWD_MAX = 258
+
+---@param bufnr integer
+---@param callback fun(ctx?: { gitdir?: string, toplevel?: string })
+function M.gitsigns_attach_pre(bufnr, callback)
+  local name = vim.api.nvim_buf_get_name(bufnr)
+  local dir = name ~= "" and vim.fs.dirname(vim.fs.normalize(vim.fn.fnamemodify(name, ":p"))) or ""
+  if vim.fn.has("win32") == 0 or vim.fn.strchars(dir) <= CWD_MAX or name:match("^%a[%w+.-]+://") then
+    return callback()
+  end
+  local root = vim.fs.root(dir, ".git")
+  if not root then
+    return callback({ gitdir = dir .. "/.git", toplevel = dir })
+  end
+  local gitdir = root .. "/.git"
+  if vim.fn.isdirectory(gitdir) == 0 then
+    -- worktree と submodule の .git はファイル（"gitdir: <場所>"。相対ならリポから）
+    local ok, lines = pcall(vim.fn.readfile, gitdir, "", 1)
+    local target = ok and (lines[1] or ""):match("^gitdir:%s*(.-)%s*$")
+    if not target or target == "" then
+      return callback({ gitdir = dir .. "/.git", toplevel = dir })
+    end
+    gitdir = vim.fs.normalize(target:match("^%a:") and target or (root .. "/" .. target))
+  end
+  callback({ gitdir = gitdir, toplevel = root })
+end
+
 function M.setup()
   if vim.fn.has("win32") == 0 then
     return

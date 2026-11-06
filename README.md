@@ -144,6 +144,8 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 
 パスが長いファイル（およそ 250 文字以上。Windows の長いパスの設定が無効な PC では、およそ 210 文字以上）は、スワップファイルと undo ファイルを作らない。名前が Windows の上限を越えて作れず、開くたびに `E303`、保存のたびに `E828` が出ていたため（`nvim/lua/config/longpath.lua`）。そのファイルは、落ちた時に戻せず、閉じた後の undo も残らない。
 
+259 文字以上のフォルダは、Windows がプログラムの作業フォルダにできない（LongPathsEnabled が有効でも）。そこにあるファイルを開くと gitsigns が git を起動できずにエラー（`ENOENT`）を出していたので、そういうファイルだけリポの場所を先に渡している（`nvim/lua/plugins/gitsigns.lua`）。git 自身の `Filename too long` は `install.ps1` が `core.longpaths` を入れて直す。残る限界: そこで `Snacks.lazygit.log_file`（今のファイルの履歴）は開けない。
+
 ### Obsidian
 
 `~/.dotfiles.json` の `vault` を設定した PC で、vault 内の md を開いた時だけ効く。
@@ -291,7 +293,7 @@ clangd はソースを UTF-8 として読む。CP932 のヘッダでは、行末
 | `:Utf8Mirror sync` | 写しを今すぐ合わせる（Neovim の外で大きく変えた後） |
 
 - 置き場: 写しと overlay は `%LOCALAPPDATA%\utf8-mirror\<フォルダ名>-<ハッシュ>`（その PC の中だけ）。clangd への指定は `%LOCALAPPDATA%\clangd\config.yaml` のリポごとの節（`# >>> utf8-mirror <リポ>`。他の内容は触らない）。AI エージェントの clangd にも効く
-- 長いパス（260 文字以上）も写す。Windows の長いパスの設定（LongPathsEnabled）は要らない。写しは元より長いパスになる（置き場の分）ので、元が 260 文字に収まっていても越えることがある。写せなかったファイルと、一覧を取れなかったフォルダは警告に出る
+- 長いパス（260 文字以上）も写す。Windows の長いパスの設定（LongPathsEnabled）は要らない。写しは元より長いパスになる（置き場の分）ので、元が 260 文字に収まっていても越えることがある。写せなかったファイルと、一覧を取れなかったフォルダは警告に出る。それらは次の同期でやり直す（index に残さない）ので、直った後に作り直す物は無い。一から作り直したい時は `:Utf8Mirror off` → `on`
 - MSVC の `/source-charset:…`・`/execution-charset:…` は、そのリポでは clangd に渡さない（clang は UTF-8 しか受け付けず、全ファイルの 1 行目がエラーになる）
 - 限界 1: clangd の裏のインデックスは `.cpp` 本体を写しでなくディスクから読む（写しが効くのは `#include` されるファイル）。行末がダメ文字のコメントの直後にある `.cpp` の定義は、別のファイルからはヘッダの宣言に飛ぶ。その `.cpp` を一度開くと飛べる（開いたファイルはエディタが渡す UTF-8 で解析する。閉じた後も、同じ clangd の間は飛べた）
 - 限界 2: clangd を起動するたびに、そのリポのインデックスを裏で作り直す（作る時は写しで読み、起動時の「変わったか」の確認はディスクの CP932 で読むため、毎回「変わった」になる）。その間も前のインデックスで飛べるが、CPU を使う
