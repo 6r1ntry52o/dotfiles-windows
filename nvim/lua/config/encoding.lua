@@ -1,13 +1,16 @@
 -- UTF-8 と CP932（Shift_JIS）が混ざったツリーを grep するための小物。
--- 使う側は lua/plugins/encoding.lua（<leader>sJ）。判定順は lua/config/options.lua。
+-- 使う側は lua/plugins/encoding.lua（既定の grep の picker に M.grep を足す）。判定順は lua/config/options.lua。
 --
 -- 考え方: ripgrep は 1 回の実行で「ファイルごとに文字コードを見分ける」ことはできない。
 --   --encoding sjis  … 全ファイルを CP932 とみなす＝UTF-8 のファイルが当たらない
 --   既定（auto）     … BOM だけ見る＝BOM なし CP932 のファイルが当たらない
--- そこで文字コードの変換はさせず（--no-unicode でバイト列として照合させ）、
--- 検索語の方を「UTF-8 のバイト列 | CP932 のバイト列」の 2 択に展開する。
+-- そこで文字コードの変換はさせず、検索語の方を「UTF-8 の文字 | CP932 のバイト列」の 2 択に展開する。
+-- CP932 の側だけを (?-u:…) に入れてバイト列として照合させる（UTF-8 の側の正規表現の意味は変えない）。
 -- これで UTF-8・UTF-8 BOM・UTF-16（rg が BOM で変換する）・CP932 が 1 回で当たる。
--- 2026-10-05 に ripgrep 15.2.0 / Neovim 0.11（Windows）で実測。
+-- 2026-10-05 に ripgrep 15.2.0 / Neovim 0.11（Windows）で実測。2026-11-06 に --no-unicode（全体）から
+-- (?-u:…)（CP932 の側だけ）に替えた。
+--
+-- 検索するのは元のファイル。clangd 用の UTF-8 の写し（config/utf8_mirror.lua）は使わない。
 local M = {}
 
 -- 厳密な UTF-8 判定。vim.iconv は判定に使えない（utf-8 → utf-8 は正しい文字列でも
@@ -59,17 +62,31 @@ function M.to_utf8(s)
   return out, true
 end
 
--- 検索語の非 ASCII 文字だけを CP932 のバイト列（\xNN）に置き換える。
+-- 検索語の非 ASCII 文字だけを CP932 のバイト列（\xNN）に置き換える（dual_pattern が (?-u:…) に入れる）。
 -- ASCII はそのまま残すので、正規表現のメタ文字は置き換えた側でも効く
 -- （CP932 は 1 バイト目が 0x81 以上＝ASCII と衝突しない）。
+-- 1 文字ずつ (?-i:…) で囲む: 「表+」の + が文字全体に掛かるように、また大文字小文字を無視する時に
+-- 2 バイト目の A〜Z・a〜z が入れ替わって別の文字に当たらないように（「ア」83 41 が「ャ」83 61 にも当たる）。
+-- […] の中は ( ) を書けないのでバイトを並べるだけ。
 -- CP932 に無い文字（絵文字など）が混ざっていたら nil。
 ---@param pat string
 ---@return string?
 function M.as_cp932_bytes(pat)
   local out = {}
+  local depth, escaped, first = 0, false, false -- […] の深さ・直前が \・[ か [^ の直後
   for ch in pat:gmatch("[\1-\127\194-\244][\128-\191]*") do
+    local opened = false
     if #ch == 1 then
       out[#out + 1] = ch
+      if escaped then
+        escaped = false
+      elseif ch == "\\" then
+        escaped = true
+      elseif ch == "[" then
+        depth, opened = depth + 1, true
+      elseif ch == "]" and depth > 0 and not first then
+        depth = depth - 1
+      end
     else
       local sjis = vim.iconv(ch, "utf-8", "cp932")
       -- CP932 に無い文字は、失敗ではなく "?" に潰れて返ってくる（絵文字など）。
@@ -78,31 +95,68 @@ function M.as_cp932_bytes(pat)
       if not sjis or sjis == "" or sjis:match("^%?+$") then
         return nil
       end
-      out[#out + 1] = (sjis:gsub(".", function(b)
+      local bytes = sjis:gsub(".", function(b)
         return ("\\x%02x"):format(b:byte())
-      end))
+      end)
+      out[#out + 1] = depth > 0 and bytes or ("(?-i:" .. bytes .. ")")
+      escaped = false
     end
+    -- [ と [^ の直後の ] は文字そのもの
+    first = opened or (first and ch == "^")
   end
   return table.concat(out)
+end
+
+-- 正規表現の記号を文字そのものにする（rg の regex::escape と同じ記号）
+local function escape(s)
+  return (s:gsub("[\\%.%+%*%?%(%)|%[%]{}%^%$#&%-~]", "\\%0"))
+end
+
+-- rg の smart-case は \x41 などのバイトも大文字に数える（実測）。2 バイト目が A〜Z の文字が入ると
+-- 検索語全体が大文字小文字を区別し、UTF-8 のファイルでも「hyouji表示」が「Hyouji表示」に当たらなくなる。
+-- 打った検索語（\ の後の 1 文字は除く）に大文字が無く、rg の引数で大文字小文字を指定していなければ、
+-- (?i:…) で smart-case と同じにする
+---@param pat string
+---@param tail string?
+local function ignore_case(pat, tail)
+  if pat:gsub("\\.", ""):find("%u") then
+    return false
+  end
+  for _, a in ipairs(vim.split(tail or "", "%s+", { trimempty = true })) do
+    if a == "-s" or a == "-i" or a == "-S" or a:match("^%-%-.*case") then
+      return false
+    end
+  end
+  return true
 end
 
 -- 検索語を「UTF-8 | CP932」の 2 択に展開する。ASCII だけなら触らない
 -- （ASCII は CP932 のファイルでもバイト列が同じなので、そのままで当たる）。
 -- snacks の `検索語 -- rg の引数` という書き方は壊さない。
+-- fixed（文字そのもので探す＝snacks が --fixed-strings を付ける。sw と <a-r> で切り替えた時）は、
+-- 記号を逃がした正規表現にして、--no-fixed-strings を足す（後ろの引数が勝つ）。
+-- \p{…} があれば展開しない（(?-u:…) の中では書けず、rg が止まる＝UTF-8 のファイルにも当たらなくなる）。
 ---@param search string
+---@param fixed? boolean
 ---@return string
-function M.dual_pattern(search)
+function M.dual_pattern(search, fixed)
   local head, tail = search:match("^(.-)%s+%-%-%s*(.*)$")
   local pat = head or search
-  if pat == "" then
+  if not pat:find("[\128-\255]") or (not fixed and pat:find("\\[pP]")) then
     return search
+  end
+  if fixed then
+    pat = escape(pat)
   end
   local alt = M.as_cp932_bytes(pat)
-  if not alt or alt == pat then
+  if not alt then
     return search
   end
-  local dual = "(?:" .. pat .. "|" .. alt .. ")"
-  return head and (dual .. " -- " .. tail) or dual
+  local dual = (ignore_case(pat, tail) and "(?i:" or "(?:") .. pat .. "|(?-u:" .. alt .. "))"
+  if fixed then
+    tail = (tail and tail ~= "" and (tail .. " ") or "") .. "--no-fixed-strings"
+  end
+  return tail and (dual .. " -- " .. tail) or dual
 end
 
 -- 一覧に出す前に、CP932 のまま出てきた行を UTF-8 へ直す。
@@ -145,7 +199,7 @@ end
 -- 周りの日本語コメントが化けるため、プレビューは行単位ではなく buffer 全体を見る。
 --
 -- 既定のプレビューを走らせた後、UTF-8 でない行だけ直す（元の文字コードは分からない
--- ので CP932 と決め打つ＝sJ で探しているのは UTF-8 と CP932 の混在ツリー）。
+-- ので CP932 と決め打つ＝このリポで UTF-8 でないテキストは CP932）。
 ---@param ctx snacks.picker.preview.ctx
 local function fix_buf(ctx)
   local buf = ctx.buf
@@ -179,7 +233,7 @@ end
 
 -- 既定のファイルプレビュー＋上の直し。picker の `preview` に渡す。
 -- 全部の picker に効かせたくなったら opts.picker.previewers ではなく
--- `Snacks.picker.preview.file` を差し替える必要があるので、ここでは sJ 専用のまま
+-- `Snacks.picker.preview.file` を差し替える必要があるので、ここでは grep だけ
 -- （latin1 の実ファイルまで CP932 とみなして潰すのを避ける）。
 ---@param ctx snacks.picker.preview.ctx
 function M.preview(ctx)
@@ -190,5 +244,17 @@ function M.preview(ctx)
   end
   return ret
 end
+
+-- grep の picker（grep・grep_word・grep_buffers）の設定に足す分。
+-- 検索語を 2 択に展開し、CP932 のまま出てきた行と右のプレビューを UTF-8 に直す
+M.grep = {
+  filter = {
+    transform = function(picker, filter)
+      filter.search = M.dual_pattern(filter.search, picker.opts.regex == false)
+    end,
+  },
+  transform = M.fix_item,
+  preview = M.preview,
+}
 
 return M

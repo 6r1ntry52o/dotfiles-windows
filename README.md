@@ -132,7 +132,6 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 | `<leader>fo` | 今のファイルを既定アプリで開く（vault 内のノートは Obsidian） |
 | `<leader>fw` | 今のファイルをエクスプローラで選択状態にして開く |
 | `<leader>fy` | 今のファイルの絶対パスをコピー |
-| `<leader>sJ` | UTF-8 と CP932 を 1 回で検索（下の「文字コード」） |
 | `Ctrl+Enter` | C/C++: 実装へ飛ぶ（下の「C/C++」）。Markdown: リンク先を開く（`[..](..)`・`[[..]]`・`#見出し`。vault の内外で同じ動き。無ければ作るか `y`/`n` で聞く＝下の「Obsidian」。画像や PDF は既定アプリ） |
 | `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
 | `<leader>mb` / `<leader>me` | lazymsbuild（MSBuild の TUI）を開く・隠す / 最後のビルドのエラーを quickfix へ |
@@ -224,14 +223,14 @@ CP932 と UTF-8 が混ざったツリーを、そのまま読み書きする。
 |---|---|
 | 開くと化ける | 自動で判定する（`ucs-bom` → `utf-8` → `cp932`）。外した時だけ `:EncOpen cp932` |
 | 今どれで開いているか分からない | ステータスライン右に出る（`cp932`・`BOM`・`CR`）。UTF-8 で BOM なしなら何も出ない |
-| 日本語で grep が当たらない | `<leader>sJ`。既定の `<leader>sg` は UTF-8 のファイルにしか当たらない |
+| grep で CP932 のファイルが化ける・日本語で当たらない | 自動（既定の grep＝`<leader>/`・`sg`・`sG`・`sw`・`sW`・`sB` が、元のファイルを UTF-8 と CP932 の両方で探し、一覧と右のプレビューを UTF-8 に直して出す）。clangd 用の写しは使わない |
 | lazygit の差分が化ける | `install.ps1` が直す（行ごとに判定するので混在してもよい）。行ステージの画面は化けたまま＝ステージする内容を変えないため（CP932 のまま index に入る） |
 | 保存で文字コードを変えたい | 既定は読んだ文字コードのまま書き戻す。変える時だけ `:EncToUtf8` / `:EncToSjis` |
 | clangd が CP932 のヘッダを読み違える（無いはずのエラー・定義に飛べない・列がずれる） | 自動（CP932 の C/C++ を開いたリポで、UTF-8 に直した写しを clangd に見せる）＝下の「CP932 のソースと clangd」 |
 | `:make` や quickfix の出力が化ける | その場で `:set makeencoding=char` |
 | プロジェクト全体の内訳を知りたい | `pwsh -File tools\Survey-Encoding.ps1 -Path <フォルダ>`（読み取り専用） |
 
-- `<leader>sJ` は正規表現の意味が少し変わる（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）
+- grep の限界: CP932 のファイルでは、正規表現の `.`・`\w`・`[…]` が日本語の 1 文字に当たらない（バイト単位で照合する）。`\p{…}` を使った検索と、CP932 に無い文字（絵文字など）を含む検索は CP932 のファイルに当たらない。一覧の CP932 の行は一致箇所に色が付かない（プレビューは付く）
 - 置換（`<leader>sr`）は CP932 のファイルに日本語で当たらない。そのファイルを開いて `:%s` でやる
 - Neovim の git ピッカー（`<leader>gd` など）のプレビューと、シェルの `git diff` は化ける
 

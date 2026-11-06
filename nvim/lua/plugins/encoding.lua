@@ -36,44 +36,22 @@ return {
     end,
   },
 
-  -- <leader>sJ … UTF-8 と Shift_JIS が混ざったツリーを 1 回で検索する grep（cwd 起点）。
-  -- 既定の <leader>sg は日本語で検索すると UTF-8 のファイルにしか当たらない（rg は
-  -- BOM なし CP932 を見分けられない）。sJ は検索語を「UTF-8 のバイト列 | CP932 のバイト列」
-  -- の 2 択に展開し、結果の表示・列番号・右のプレビューを UTF-8 に直す。
-  -- 仕組み＝lua/config/encoding.lua
+  -- 既定の grep（<leader>/・sg・sG・sw・sW・sB）で、UTF-8 と Shift_JIS が混ざったツリーを 1 回で検索する。
+  -- 素の snacks は rg の出力をそのまま出す＝BOM なし CP932 のファイルは日本語で当たらず、ASCII で当たった行と
+  -- 右のプレビューは化ける（rg は BOM なし CP932 を見分けられない）。検索語を「UTF-8 | CP932 のバイト列」の
+  -- 2 択に展開し、結果の表示・列番号・右のプレビューを UTF-8 に直す。仕組み＝lua/config/encoding.lua
   --
-  -- sg と sJ を分けてあるのは、sJ では --no-unicode が効いて正規表現の意味が少し変わるため
-  --（`.` が 1 バイト・`\w` と大文字小文字の無視が ASCII だけ）。
-  -- 常にこちらを使いたくなったら、この keys の "<leader>sJ" を "<leader>sG" に変える
-  --（sJ は cwd 起点＝sG と同じ範囲。root dir 起点にしたいなら cwd を LazyVim.root() に戻す）。
+  -- 2026-11-06 までは <leader>sJ に分けていた（--no-unicode で正規表現の意味が少し変わったため）。
+  -- CP932 の側だけをバイト列で照合するようにしたので、既定の grep に入れた。
   {
     "folke/snacks.nvim",
-    keys = {
-      {
-        "<leader>sJ",
-        function()
-          local Enc = require("config.encoding")
-          Snacks.picker.grep({
-            -- root dir ではなく cwd から検索する（LazyVim 既定の sg ではなく sG 側の挙動）。
-            -- :pwd を動かせば検索範囲が動く＝サブディレクトリだけを狙える。
-            cwd = vim.fn.getcwd(),
-            title = "Grep (UTF-8 + Shift_JIS, cwd)",
-            -- 文字コードの変換をさせず、バイト列として照合させる
-            args = { "--no-unicode" },
-            -- 打った検索語を 2 択に展開する（rg に渡る直前）
-            filter = {
-              transform = function(_, filter)
-                filter.search = Enc.dual_pattern(filter.search)
-              end,
-            },
-            -- CP932 のまま出てきた行を UTF-8 に直す
-            transform = Enc.fix_item,
-            -- 右のプレビューも UTF-8 に直す（snacks の既定は生のバイト列を流し込む）
-            preview = Enc.preview,
-          })
-        end,
-        desc = "Grep (UTF-8 + Shift_JIS)",
-      },
-    },
+    opts = function(_, opts)
+      local grep = require("config.encoding").grep
+      opts.picker = opts.picker or {}
+      opts.picker.sources = opts.picker.sources or {}
+      for _, name in ipairs({ "grep", "grep_word", "grep_buffers" }) do
+        opts.picker.sources[name] = vim.tbl_deep_extend("force", opts.picker.sources[name] or {}, grep)
+      end
+    end,
   },
 }
