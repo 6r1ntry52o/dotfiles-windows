@@ -447,6 +447,16 @@ try {
     Write-Warning "tools\Install-ObsidianSnippets.ps1 failed: $($_.Exception.Message)"
 }
 
+# 8c. Obsidian: the keys of LazyVim (Vim mode, Ctrl+h/j/k/l between splits, Shift+h/l between
+#     tabs). Merges obsidian\hotkeys.json into the vault's hotkeys (keeps the ones set in Obsidian),
+#     copies obsidian\vimrc to <vault>\.obsidian.vimrc, turns Vim mode on, and installs the Vimrc
+#     Support plugin through Obsidian's CLI while the vault is open (not with -SkipPackages).
+try {
+    & (Join-Path $repo 'tools\Install-ObsidianKeys.ps1') -SkipPackages:$SkipPackages
+} catch {
+    Write-Warning "tools\Install-ObsidianKeys.ps1 failed: $($_.Exception.Message)"
+}
+
 # 9. AI agents (Claude Code, GitHub Copilot CLI), on the PCs that have them: the skills in
 #    ai\skills (one copy, shown to both through junctions) and the editor's language servers
 #    (clangd from Mason, rust-analyzer from rustup). Plugins and rust-analyzer are fetched,

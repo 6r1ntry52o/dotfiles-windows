@@ -30,6 +30,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 7c | `tools/bin/utf8-mirror.exe` をビルドする（CP932 のソースを clangd に UTF-8 で見せる＝下の「CP932 のソースと clangd」。有効にするのは Neovim） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
 | 8b | `obsidian/snippets/*.css`（note/ のチェックボックスの状態の見た目）を vault の `.obsidian/snippets` に写し、Obsidian が開いていれば有効にする（下の「Obsidian」） |
+| 8c | Obsidian のキーを LazyVim に揃える（Vim モード・`Ctrl+h/j/k/l` で分割・`Shift+h/l` でタブ）。ホットキーを vault に混ぜ、vimrc を写し、Vim モードを on にし、Obsidian が開いていればプラグイン Vimrc Support を入れる（下の「Obsidian」。プラグインの取得は `-SkipPackages` で飛ばせる） |
 | 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする。vault がある PC では、どのリポから起動しても vault を読めるようにし、note/ を守るフックをつなぐ（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
 
 管理者権限は要らない。次は `install.ps1` がやらないので、要る PC だけ手で行う。
@@ -188,7 +189,30 @@ vault の中に居る時は Obsidian の紫（`#a882ff`）で示す。md 以外�
 - Tasks プラグインで `[a]` を未完了（一覧に残る）、`[d]` を完了として扱うには、その設定の Task Statuses に `a`（型 ON_HOLD など DONE 以外）と `d`（型 DONE）を足す（vault ごと・手で）
 - Obsidian が閉じている時に `install.ps1` を流すと、写すだけで有効にはしない（設定 → 外観 → CSS スニペットで入れるか、開いている時にもう一度流す）
 
-Obsidian の Vim モードで IME を切るには、PC ごとに次を行う。
+Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Install-ObsidianKeys.ps1`）。
+
+| キー | 動作 | 正本 |
+|---|---|---|
+| `Ctrl+h` / `Ctrl+j` / `Ctrl+k` / `Ctrl+l` | 左・下・上・右の分割（タブグループ）へ移る。どのモードでも、閲覧表示でも効く | `obsidian/hotkeys.json` |
+| `Shift+h` / `Shift+l`（ノーマルモード） | 同じタブグループの前・次のタブへ | `obsidian/vimrc` |
+| `Ctrl+Shift+H` / `Ctrl+Shift+K` / `Ctrl+Shift+L` | 置換・リンクの挿入・チェックボックスの切り替え（Obsidian 既定の `Ctrl+H/K/L` から移した） | `obsidian/hotkeys.json` |
+
+8c がすること（何度流してもよい）:
+
+- `obsidian/hotkeys.json` を vault の `.obsidian/hotkeys.json` に混ぜる。Obsidian で別のキーを付けたコマンドは触らずに警告する（リポのものにするには、設定 → ホットキーでそのコマンドを既定に戻して流し直す）。同じキーが別のコマンドにも付いていても警告する
+- `obsidian/vimrc` を vault 直下の `.obsidian.vimrc` に写す（写しは上書きするので、直すのはリポの方）
+- `.obsidian/app.json` の `vimMode` を `true` にする（Vim モード）
+- コミュニティプラグイン **Vimrc Support**（`obsidian-vimrc-support`）を Obsidian の CLI で入れて有効にする。その vault が Obsidian で開いている時だけ行う（閉じていると CLI が Obsidian を起動してしまうため）
+
+いつ効くか:
+
+- キーと Vim モードは、開いている Obsidian にもすぐ効く。読み込みの操作は要らない（`hotkeys.json` の書き換えは Obsidian が読み直す。`app.json` は読み直さないことがあるので、8c が CLI の `eval` で同じ設定を入れる）
+- `Shift+h/l` は、Vimrc Support が入った後にタブを 1 回切り替えると効く。Vimrc Support は vimrc をウィンドウごとに 1 回だけ読むので、`obsidian/vimrc` を変えた時は Obsidian を開き直す
+- Vimrc Support を CLI で入れるには、Obsidian のインストーラが 1.11.7 以降であること（`obsidian version` の `installer`）。古いインストーラの CLI は、`:` を含む引数の後ろに別の引数があるとすぐ終わる（1.9.14 で実測）ので `plugin:install id=…` が通らない。その時 8c は手順を出すだけなので、設定 → コミュニティプラグインで入れて有効にするか、[obsidian.md](https://obsidian.md/download) からインストーラを入れ直して流し直す
+- Obsidian が閉じている時に流すと、キーと Vim モードは次に開いた時に効く。プラグインは、開いている時にもう一度流すと入る（設定 → コミュニティプラグインから入れてもよい）
+- Obsidian Sync でメイン設定とホットキーを同期していれば、キーと Vim モードは他の PC にも届く。スマホは Vim モードを端末ごとに持つので、ここで on にしても変わらない
+
+Obsidian の Vim モードで IME を切るには、PC ごとに次を行う（入っていなければ 8c が知らせる）。
 
 1. コミュニティプラグイン **Vim IM Select**（`alonelur/vim-im-select-obsidian`）を入れて有効化する
 2. その設定の Windows 用 3 項目を埋めて Obsidian を再起動する
@@ -348,6 +372,8 @@ WSL の ~/.bashrc・~/.zshrc     ──読む──▶ wsl/osc7.sh・osc7.zsh �
                                ─呼ぶ▶ ai/hooks/note-guard.ps1・tools/bin/file-suggest.exe
 ~/.copilot/hooks/note-guard.json  install.ps1 が書く ─呼ぶ▶ ai/hooks/note-guard.ps1
 <vault>/.obsidian/snippets/vault-task-status.css  写し（install.ps1 が上書き）◀─ obsidian/snippets/
+<vault>/.obsidian.vimrc        写し（install.ps1 が上書き）◀─ obsidian/vimrc
+<vault>/.obsidian/hotkeys.json  リポの外（Obsidian でキーを付けていないコマンドだけ install.ps1 が足す）◀─ obsidian/hotkeys.json
 ~/.dotfiles.json               ◀─読まれる─ wezterm・nvim・profile.ps1
 %LOCALAPPDATA%\nvim-data       リポの外（install.ps1 は消さない。lazy\・mason\ は消しても入り直す。shada\＝Recent Files と Projects の元・sessions\・undo\ は消すと戻らない）
 ```
@@ -361,6 +387,7 @@ dotfiles-windows/
 ├── ai/skills/               AI エージェントのスキル（Claude Code と Copilot CLI が同じものを読む）・vault-note/scripts/vault-links.ps1
 ├── ai/hooks/                note-guard.ps1（note/ を守る PreToolUse フック・両エージェント共通）
 ├── obsidian/snippets/       vault に写す CSS（tools/Install-ObsidianSnippets.ps1 が写す）
+├── obsidian/                hotkeys.json・vimrc（LazyVim と同じキー。tools/Install-ObsidianKeys.ps1 が vault に入れる）
 ├── tools/file-suggest/      FileSuggest.cs（→ bin/file-suggest.exe・Claude Code の @ の候補に note/ を足す）
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
@@ -390,6 +417,7 @@ dotfiles-windows/
 - `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` の `lazy` と `mason` を消す（`nvim-data` ごと消すと Recent Files・Projects・セッション・undo の履歴も消える）
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
 - Obsidian の Vim IM Select を無効化する
+- Obsidian のキーは、設定 → エディタで Vim キーバインドを切り、設定 → ホットキーで `obsidian/hotkeys.json` の 7 つのコマンドを既定に戻し、Vimrc Support を無効化して `<vault>/.obsidian.vimrc` を消す
 - CP932 の写しは、使っているリポごとに `tools\bin\utf8-mirror.exe disable <リポ>`（一覧は `utf8-mirror status`）。`%LOCALAPPDATA%\clangd\config.yaml` の節と `%LOCALAPPDATA%\utf8-mirror` の写しが消える
 - lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
 - vault 関係は `~/.claude/settings.json` の `hooks.PreToolUse` から `note-guard.ps1` を呼ぶ 3 項目・`fileSuggestion`・`permissions.additionalDirectories` の vault を消し（`.bak-*` があれば戻す）、`~/.copilot/hooks/note-guard.json` を消す。CSS は Obsidian の設定で切って `<vault>/.obsidian/snippets/vault-task-status.css` を消す
