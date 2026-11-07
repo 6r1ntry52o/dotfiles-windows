@@ -17,6 +17,9 @@
 //      l フォルダの開閉 / ファイルを開く）。エクスプローラに入った時も IME を切る（ノーマルモードと同じ扱い）
 //   6. Ctrl+矢印で分割の大きさを変える（LazyVim の <C-Up>/<C-Down>＝高さ ±・<C-Left>/<C-Right>＝幅 ∓/±）。
 //      INSERT の編集画面と入力欄では元の動き（単語の移動など）のまま
+//   7. Space のリーダーを編集画面の外でも効かせる（ファイルエクスプローラ・閲覧表示・新しいタブの画面）。
+//      編集画面の中は Vim（vimrc の nmap）が受ける。キーの表は vimrc の exmap と nmap <Space>… から作るので、
+//      キーを足すのは vimrc だけでよい
 //
 // （今のタブグループの今のタブをアクセントの色にするのは styles.css だけでやる）
 //
@@ -60,6 +63,29 @@ const MODE_LABELS = {
 // Ctrl+矢印 1 回で動かす幅（px）と、分割・サイドバーの最小の幅（Obsidian がドラッグで止める 200px と同じ）
 const RESIZE_STEP = 40;
 const MIN_PANE = 200;
+
+// 編集画面の外で Space のリーダーを受ける画面（data-type）。Canvas や Excalidraw は Space を押しながらの
+// ドラッグで動かすので入れない。ファイルエクスプローラは木の scope で受ける（hookExplorers）
+const LEADER_VIEWS = ['markdown', 'empty'];
+const MODIFIER_KEYS = ['Shift', 'Control', 'Alt', 'Meta', 'CapsLock'];
+
+// vimrc の exmap <名前> obcommand <id> と nmap <Space><キー> :<名前><CR> から、<Space> の後のキー → id
+function parseLeader(vimrc) {
+  const ex = {};
+  const keys = {};
+  for (const line of vimrc.split(/\r?\n/)) {
+    const exmap = line.match(/^\s*exmap\s+(\w+)\s+obcommand\s+(\S+)/);
+    if (exmap) {
+      ex[exmap[1]] = exmap[2];
+      continue;
+    }
+    const nmap = line.match(/^\s*n?map\s+<Space>(\S+)\s+:(\w+)<CR>\s*$/);
+    if (nmap) {
+      keys[nmap[1]] = nmap[2];
+    }
+  }
+  return Object.fromEntries(Object.entries(keys).filter(([, name]) => ex[name]).map(([k, name]) => [k, ex[name]]));
+}
 
 // Ctrl+矢印 → [向き, 大きくするか]
 const RESIZE_KEYS = {
@@ -131,10 +157,17 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     // ここは Obsidian のキーの処理（同じ window の capture・先に登録）の後に来る。エクスプローラの中は
     // hookExplorers が足したキーが先に受けて止めるので、ここでは何もしない（defaultPrevented）
     this.registerDomEvent(window, 'keydown', (ev) => this.onResizeKey(ev), { capture: true });
+    // 編集画面の外の Space のリーダー。null＝待っていない・文字列＝Space の後に押したキー
+    this.leader = null;
+    this.leaderMap = {};
+    this.loadLeader();
+    this.registerDomEvent(window, 'keydown', (ev) => this.onLeaderKey(ev), { capture: true });
 
     // ファイルエクスプローラの木（scope）→ 足したキー。外す時に使う
     this.scoped = new Map();
     this.registerDomEvent(document, 'focusin', (ev) => {
+      // Space の後に別の所へ移ったら、リーダーはやめる（移った先の最初のキーを食べないように）
+      this.leader = null;
       this.offUnlessInsert(ev.target);
       this.showMode();
     });
@@ -185,15 +218,24 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       if (!scope || this.scoped.has(scope)) {
         continue;
       }
+      // リーダーの途中なら、ここで受けたキーもリーダーの続きにする（Space の後の j などを木に渡さない）
       const key = (modifiers, k, fn) =>
         scope.register(modifiers, k, (ev) => {
           if (this.isTyping(ev.target)) {
             return true;
           }
-          fn(ev);
+          // 同じキーは window の onLeaderKey にも来る。そこで 2 回数えないように
+          this.consumed = ev;
+          if (this.leader !== null) {
+            this.leaderKey(ev);
+          } else {
+            fn(ev);
+          }
           return false;
         });
       const handlers = [
+        // Space は木では「開く」。LazyVim と同じくリーダーにする（開くのは l と Enter）
+        key([], ' ', () => this.startLeader()),
         key([], 'j', (ev) => tree.onKeyArrowDown(ev)),
         key([], 'k', (ev) => tree.onKeyArrowUp(ev)),
         key([], 'h', (ev) => tree.onKeyArrowLeft(ev)),
@@ -217,6 +259,77 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     } else {
       tree.onKeyOpen(ev);
     }
+  }
+
+  async loadLeader() {
+    const vimrc = this.app.plugins.plugins['obsidian-vimrc-support'];
+    const file = vimrc?.settings?.vimrcFileName || '.obsidian.vimrc';
+    try {
+      this.leaderMap = parseLeader(await this.app.vault.adapter.read(file));
+    } catch (err) {
+      console.warn(`dotfiles-vim: ${file} を読めないので、編集画面の外の Space のリーダーは効かない`, err);
+    }
+  }
+
+  startLeader() {
+    this.leader = '';
+    this.render();
+  }
+
+  // 編集画面の外で Space を受ける。Obsidian のキーの処理（エクスプローラの木を含む）の後に来る
+  onLeaderKey(ev) {
+    if (ev === this.consumed || MODIFIER_KEYS.includes(ev.key)) {
+      return;
+    }
+    if (this.leader !== null) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.leaderKey(ev);
+      return;
+    }
+    if (ev.key !== ' ' || ev.defaultPrevented || ev.isComposing || ev.ctrlKey || ev.altKey || ev.metaKey || ev.shiftKey) {
+      return;
+    }
+    const el = document.activeElement;
+    if (this.vimOf(el) || this.isTyping(el) || el?.closest?.('.modal-container, button, a, [role="button"]')) {
+      return;
+    }
+    const content = el?.closest?.('.workspace-leaf-content');
+    if (content ? !LEADER_VIEWS.includes(content.dataset.type) : el !== document.body) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.startLeader();
+  }
+
+  // Space の後のキー。表に合えば動かし、続きがありそうなら待ち、どれにも合わなければやめる（Vim と同じ・時間切れ無し）
+  leaderKey(ev) {
+    if (ev.key === 'Escape') {
+      this.leader = null;
+    } else {
+      const keys = this.leader + (ev.key === ' ' ? '<Space>' : ev.key);
+      const id = this.leaderMap[keys];
+      this.leader = !id && Object.keys(this.leaderMap).some((k) => k.startsWith(keys)) ? keys : null;
+      if (id) {
+        this.runLeader(id);
+      }
+    }
+    this.render();
+  }
+
+  // サイドバー（エクスプローラ）から押した時は、最後に開いていたノートのタブで動かす（分割・タブを閉じる・
+  // アウトラインがノートに効くように。分割は今のタブがサイドバーだと Obsidian が受け付けない）
+  runLeader(id) {
+    const { workspace } = this.app;
+    const leaf = workspace.activeLeaf;
+    if (leaf && leaf.getRoot() !== workspace.rootSplit) {
+      const recent = workspace.getMostRecentLeaf(workspace.rootSplit);
+      if (recent) {
+        workspace.setActiveLeaf(recent, { focus: true });
+      }
+    }
+    this.app.commands.executeCommandById(id);
   }
 
   onResizeKey(ev) {
@@ -343,15 +456,16 @@ module.exports = class DotfilesVimPlugin extends Plugin {
 
   render() {
     const cm = this.activeVim();
-    // INSERT 中の status には打った文字もたまっていくので、ノーマルとビジュアルの時だけ出す
-    let keys = '';
+    // INSERT 中の status には打った文字もたまっていくので、ノーマルとビジュアルの時だけ出す。
+    // 編集画面の外のリーダーの途中なら、それを出す
+    let keys = this.leader !== null ? '<Space>' + this.leader : '';
     if (cm) {
       this.hook(cm);
       const mode = this.modeOf(cm);
       this.modeEl.setText(MODE_LABELS[mode]);
       this.modeEl.dataset.mode = mode;
       this.markMode(cm, mode);
-      if (mode === 'normal' || mode.startsWith('visual')) {
+      if (!keys && (mode === 'normal' || mode.startsWith('visual'))) {
         keys = cm.state.vim.status || '';
       }
     }

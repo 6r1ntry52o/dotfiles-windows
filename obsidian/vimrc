@@ -9,7 +9,9 @@ exmap tabNext obcommand workspace:next-tab
 nmap H :tabPrev<CR>
 nmap L :tabNext<CR>
 
-" Space as the leader key, like LazyVim (normal mode in the editor only; not in reading view).
+" Space as the leader key, like LazyVim. Vim reads these lines in the editor (normal mode); the
+" plugin dotfiles-vim reads the same exmap and nmap <Space> lines for the file explorer, reading view
+" and the new-tab page, so add keys here only (as exmap ... obcommand ... and nmap <Space>... :name<CR>).
 " Obsidian's Vim has no <leader> or mapleader, so the keys say <Space>. Space moves right by default,
 " and a key that fully matches runs at once even when a longer mapping starts with it, so that
 " default goes first (unmap without a mode: the default has none, so nunmap would not find it).

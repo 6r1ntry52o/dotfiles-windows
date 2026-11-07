@@ -222,7 +222,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 - Obsidian が閉じている時に流すと、キーと Vim モードは次に開いた時に効く。プラグインは、開いている時にもう一度流すと入る（設定 → コミュニティプラグインから入れてもよい）
 - Obsidian Sync でメイン設定とホットキーを同期していれば、キーと Vim モードは他の PC にも届く。スマホは Vim モードを端末ごとに持つので、ここで on にしても変わらない
 
-`Space` は LazyVim と同じくリーダーにする。効くのは編集画面のノーマルモードだけ（閲覧表示では Space はスクロールのまま。サイドバー・グラフ・新しいタブの画面でも効かない）。
+`Space` は LazyVim と同じくリーダーにする。効くのは、編集画面のノーマルモード・ファイルエクスプローラ・閲覧表示・新しいタブの画面（閲覧表示の Space のスクロールと、エクスプローラの Space の「開く」はやめた。開くのは `l` と Enter）。他のサイドバー（アウトライン・検索など）・Canvas・グラフ・INSERT では効かない。エクスプローラから押すと、最後に開いていたノートのタブで動く（分割・タブを閉じる・アウトラインがノートに効く）。
 
 | キー | LazyVim | Obsidian |
 |---|---|---|
@@ -234,6 +234,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | `Space b d` | Delete Buffer | 今のタブを閉じる |
 | `Space -`・`Space \|` | 下・右に分割 | 下・右に分割 |
 
+- キーを足す時は `obsidian/vimrc` に `exmap <名前> obcommand <コマンド>` と `nmap <Space><キー> :<名前><CR>` を書く。編集画面の中は Vim がそれを読み、編集画面の外は `dotfiles-vim` が同じ行を読む（プラグインは読み込む時に 1 回読むので、変えたら Obsidian を開き直す）
 - Obsidian の Vim には `<leader>`（`mapleader`）が無いので、vimrc には `<Space>` と書く。Space には「右へ 1 文字」が付いていて、完全に合うキーは長い候補があっても待たずに動くので、先に `unmap <Space>` で外している
 - which-key のような候補の一覧は出ない。Space の後は、次のキーを押すまで待つ（時間切れは無い）。押しかけのキーはモードの右に出る（`<Space>s` など。Neovim の showcmd）
 
