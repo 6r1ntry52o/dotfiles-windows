@@ -6,7 +6,7 @@
 //   終了コード 0=成功・1=引数が変・2=相手に IME が無い・3=応答が無い
 //
 // 何のためにあるか: Obsidian の Vim モードで、INSERT 以外の間は IME を切るため。
-// Obsidian のプラグイン（obsidian/plugins/dotfiles-ime-off）は JS から Win32 を呼べないので、
+// Obsidian のプラグイン（obsidian/plugins/dotfiles-vim）は JS から Win32 を呼べないので、
 // この exe を `ime 0` で呼ぶ。install.ps1 の 8c がプラグインの隣に写す。
 // nvim は同じことを Lua の FFI で直接やる（nvim/lua/config/ime.lua）＝こちらは呼ばない。
 //

@@ -1,9 +1,0 @@
-{
-  "id": "dotfiles-ime-off",
-  "name": "IME off outside Insert (dotfiles)",
-  "version": "1.0.0",
-  "minAppVersion": "1.4.0",
-  "description": "Turns the IME off whenever a Vim-mode editor is not in Insert mode, like Neovim with dotfiles-windows. Needs ime.exe next to it, which dotfiles-windows' install.ps1 puts there.",
-  "author": "dotfiles-windows",
-  "isDesktopOnly": true
-}

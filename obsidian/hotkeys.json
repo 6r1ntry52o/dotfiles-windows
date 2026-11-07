@@ -57,5 +57,21 @@
       ],
       "key": "L"
     }
+  ],
+  "dotfiles-vim:back": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "O"
+    }
+  ],
+  "dotfiles-vim:forward": [
+    {
+      "modifiers": [
+        "Mod"
+      ],
+      "key": "I"
+    }
   ]
 }

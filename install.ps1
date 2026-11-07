@@ -456,10 +456,11 @@ try {
 }
 
 # 8c. Obsidian: the keys of LazyVim (Vim mode, Ctrl+h/j/k/l between splits, Shift+h/l between
-#     tabs, the IME off outside Insert mode). Merges obsidian\hotkeys.json into the vault's hotkeys
+#     tabs, Ctrl+o/i back and forward, the mode in the status bar, the IME off outside Insert mode).
+#     Merges obsidian\hotkeys.json into the vault's hotkeys
 #     (keeps the ones set in Obsidian), copies obsidian\vimrc to <vault>\.obsidian.vimrc, turns Vim
 #     mode on, installs the Vimrc Support plugin through Obsidian's CLI while the vault is open (not
-#     with -SkipPackages), and copies the plugin obsidian\plugins\dotfiles-ime-off with ime.exe from
+#     with -SkipPackages), and copies the plugin obsidian\plugins\dotfiles-vim with ime.exe from
 #     step 7 into the vault and turns it on.
 try {
     & (Join-Path $repo 'tools\Install-ObsidianKeys.ps1') -SkipPackages:$SkipPackages

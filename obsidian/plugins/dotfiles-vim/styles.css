@@ -1,0 +1,29 @@
+/* dotfiles-vim: ステータスバーのモード表示。色は nvim の lualine と同じ
+   （kanagawa.nvim の lualine テーマ・wave。文字は sumiInk0 / sumiInk3）。 */
+.status-bar-item.dotfiles-vim-mode {
+  order: -1; /* lualine と同じく左端に */
+  padding: 0 8px;
+  font-weight: bold;
+  color: #1f1f28;
+  background-color: #7e9cd8; /* crystalBlue */
+}
+
+.status-bar-item.dotfiles-vim-mode[data-mode='normal'] {
+  color: #16161d;
+}
+
+.status-bar-item.dotfiles-vim-mode[data-mode='insert'] {
+  background-color: #98bb6c; /* springGreen */
+}
+
+.status-bar-item.dotfiles-vim-mode[data-mode^='visual'] {
+  background-color: #957fb8; /* oniViolet */
+}
+
+.status-bar-item.dotfiles-vim-mode[data-mode='replace'] {
+  background-color: #ffa066; /* surimiOrange */
+}
+
+.status-bar-item.dotfiles-vim-mode[data-mode='command'] {
+  background-color: #c0a36e; /* boatYellow2 */
+}
