@@ -99,3 +99,11 @@
 .theme-light .workspace-leaf.mod-active .cm-lineNumbers .cm-gutterElement.cm-active {
   color: #e98a00; /* lotusOrange2。白地では roninYellow は薄くて読みにくい */
 }
+
+/* ヤンクした所（nvim の vim.hl.on_yank）。main.js が 150ms だけ付ける。色は dotfiles の nvim の IncSearch と同じ
+   （roninYellow の地に sumiInk0 の文字。nvim/lua/plugins/colorscheme.lua）。地を塗るので明るいテーマでも同じ色。
+   nvim の IncSearch は太字だが、Obsidian は文字の幅が変わって行の折り返しが動くので太字にしない */
+.cm-editor .dotfiles-vim-yank {
+  color: #16161d;
+  background-color: #ff9e3b;
+}

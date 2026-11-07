@@ -457,7 +457,8 @@ try {
 
 # 8c. Obsidian: the keys of LazyVim (Vim mode, Ctrl+h/j/k/l between splits, Shift+h/l between
 #     tabs, Space as the leader, Ctrl+o/i back and forward, hjkl in the file explorer, Ctrl+arrows
-#     to resize, the mode and pending keys in the status bar, the IME off outside Insert mode).
+#     to resize, the mode and pending keys in the status bar, the yanked text flashed, the IME off
+#     outside Insert mode).
 #     Merges obsidian\hotkeys.json into the vault's hotkeys
 #     (keeps the ones set in Obsidian), copies obsidian\vimrc to <vault>\.obsidian.vimrc, turns Vim
 #     mode on, installs the Vimrc Support plugin through Obsidian's CLI while the vault is open (not

@@ -1,4 +1,4 @@
-// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 6 つ足す
+// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 8 つ足す
 // （もう 1 つ、今いる分割のカーソルの行を塗るのは styles.css でやる。帯の色は今のモードの色で、
 // そのために編集画面（.cm-editor）に data-dotfiles-vim-mode を付ける）。
 //
@@ -20,6 +20,7 @@
 //   7. Space のリーダーを編集画面の外でも効かせる（ファイルエクスプローラ・閲覧表示・新しいタブの画面）。
 //      編集画面の中は Vim（vimrc の nmap）が受ける。キーの表は vimrc の exmap と nmap <Space>… から作るので、
 //      キーを足すのは vimrc だけでよい
+//   8. ヤンクした所を一瞬光らせる（nvim の vim.hl.on_yank。LazyVim が TextYankPost で呼ぶ）。色は styles.css
 //
 // （今のタブグループの今のタブをアクセントの色にするのは styles.css だけでやる）
 //
@@ -43,8 +44,8 @@
 'use strict';
 
 const { MarkdownView, Plugin } = require('obsidian');
-const { Compartment } = require('@codemirror/state');
-const { EditorView, lineNumbers } = require('@codemirror/view');
+const { Compartment, StateEffect, StateField } = require('@codemirror/state');
+const { Decoration, EditorView, lineNumbers } = require('@codemirror/view');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -124,6 +125,23 @@ function relativeLineNumbers() {
   ];
 }
 
+// ヤンクした所を光らせる時間（vim.hl.on_yank の既定と同じ）と、光らせる範囲を入れ替える effect（空なら消す）
+const YANK_MS = 150;
+const setYank = StateEffect.define();
+const yankMark = Decoration.mark({ class: 'dotfiles-vim-yank' });
+const yankField = StateField.define({
+  create: () => Decoration.none,
+  update(marks, tr) {
+    for (const effect of tr.effects) {
+      if (effect.is(setYank)) {
+        return Decoration.set(effect.value.map(({ from, to }) => yankMark.range(from, to)), true);
+      }
+    }
+    return marks.map(tr.changes);
+  },
+  provide: (field) => EditorView.decorations.from(field),
+});
+
 module.exports = class DotfilesVimPlugin extends Plugin {
   onload() {
     const ime = path.join(this.app.vault.adapter.getBasePath(), this.manifest.dir, 'ime.exe');
@@ -152,6 +170,10 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       callback: () => this.runByMode('app:go-forward', 'editor:toggle-italics'),
     });
     this.registerEditorExtension(relativeLineNumbers());
+    // 今光らせている { view, timer }
+    this.yanked = null;
+    this.registerEditorExtension(yankField);
+    this.hookYank();
     // Ctrl+矢印はホットキーにしない。Obsidian はホットキーのコマンドが例外を投げた時しかキーを他へ回さず、
     // INSERT や入力欄で何もしなくてもキーを止めてしまう（単語の移動が効かなくなる。本体のコードで確認）。
     // ここは Obsidian のキーの処理（同じ window の capture・先に登録）の後に来る。エクスプローラの中は
@@ -189,6 +211,7 @@ module.exports = class DotfilesVimPlugin extends Plugin {
 
   onunload() {
     cancelAnimationFrame(this.frame);
+    this.clearYank();
     for (const cm of this.hooked.keys()) {
       this.unhook(cm);
     }
@@ -531,6 +554,63 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       delete cm.cm6.dom.dataset.dotfilesVimMode;
     }
     this.hooked.delete(cm);
+  }
+
+  // ヤンク（y の演算子・:yank）は、どれも Vim のレジスタの pushText を通る（Obsidian 本体の lib/codemirror/vim.js）。
+  // y の時は、選択がヤンクした範囲になっている（中身を選択から取るため。ブロックのヤンクは選択が複数）ので、
+  // それを光らせる。:yank は選択がカーソルのままなので光らない。window.CodeMirrorAdapter.Vim が編集画面
+  // （CodeMirror 6）の Vim（CodeMirror.Vim は旧エディタの別物）。pushText はレジスタの表の prototype にある
+  hookYank() {
+    const controller = window.CodeMirrorAdapter?.Vim?.getRegisterController?.();
+    const proto = controller && Object.getPrototypeOf(controller);
+    const original = proto?.pushText;
+    if (typeof original !== 'function') {
+      console.warn('dotfiles-vim: Vim のレジスタが見つからないので、ヤンクした所は光らない');
+      return;
+    }
+    const plugin = this;
+    let active = true;
+    const pushText = function (registerName, operator, ...rest) {
+      const result = original.call(this, registerName, operator, ...rest);
+      // "_ はどこにも入れない（nvim も TextYankPost を起こさない）
+      if (active && operator === 'yank' && registerName !== '_') {
+        plugin.flashYank();
+      }
+      return result;
+    };
+    proto.pushText = pushText;
+    this.register(() => {
+      active = false;
+      // 後から他のプラグインが包んでいたら、そのまま残す（戻すとそちらの分も外れる）
+      if (proto.pushText === pushText) {
+        proto.pushText = original;
+      }
+    });
+  }
+
+  // キーを受けた編集画面（フォーカスのある所）の今の選択を、YANK_MS だけ光らせる
+  flashYank() {
+    const view = this.activeVim()?.cm6;
+    const ranges = view ? view.state.selection.ranges.filter((range) => !range.empty) : [];
+    if (!ranges.length) {
+      return;
+    }
+    this.clearYank();
+    view.dispatch({ effects: setYank.of(ranges) });
+    this.yanked = { view, timer: window.setTimeout(() => this.clearYank(), YANK_MS) };
+  }
+
+  clearYank() {
+    if (!this.yanked) {
+      return;
+    }
+    const { view, timer } = this.yanked;
+    this.yanked = null;
+    clearTimeout(timer);
+    // 閉じた編集画面は消すまでもない
+    if (view.dom.isConnected) {
+      view.dispatch({ effects: setYank.of([]) });
+    }
   }
 
   // ノーマルモードの編集画面にフォーカスがある時だけ inNormal、それ以外はこのキーの元の動き
