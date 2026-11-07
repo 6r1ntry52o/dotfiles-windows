@@ -1,9 +1,11 @@
 ﻿<#
 .SYNOPSIS
-    Obsidian のキーを LazyVim に揃える: Vim モード・Ctrl+h/j/k/l で分割を移る・Shift+h/l で前後のタブ。
+    Obsidian のキーを LazyVim に揃える: Vim モード・Ctrl+h/j/k/l で分割を移る・Shift+h/l で前後のタブ・
+    INSERT 以外では IME を OFF。
 
 .DESCRIPTION
-    正本はこのリポの obsidian\hotkeys.json と obsidian\vimrc。vault には次の 4 つをする。何度流してもよい。
+    正本はこのリポの obsidian\hotkeys.json・obsidian\vimrc・obsidian\plugins\dotfiles-ime-off。
+    vault には次の 5 つをする。何度流してもよい。
 
     1. hotkeys.json を vault の .obsidian\hotkeys.json に混ぜる。まだキーを付けていないコマンドだけ足し、
        Obsidian で別のキーを付けたコマンドは触らずに警告する（設定 → ホットキーで既定に戻して流し直すと入る）。
@@ -15,6 +17,9 @@
     4. コミュニティプラグイン Vimrc Support を入れて有効にする。Obsidian でその vault が開いている時だけ、
        その CLI（plugin:install）で行う。閉じている時・-SkipPackages の時・インストーラが 1.11.7 より古い時は
        手順を出すだけ。
+    5. INSERT 以外で IME を切るプラグイン dotfiles-ime-off を、それが呼ぶ tools\bin\ime.exe と一緒に
+       .obsidian\plugins\ に写して有効にする。開いている Obsidian では eval で読み込む（再起動は要らない）。
+       ストアから取らないので -SkipPackages でも行う。
 
     開いている Obsidian は hotkeys.json の書き換えを読み直すので、1 はすぐ効く。vimrc は Vimrc Support が
     ウィンドウごとに 1 回だけ読むので、写しを入れ替えた時は Obsidian を開き直す。
@@ -229,8 +234,57 @@ if ($enabledBefore) {
     }
 }
 
-# Vim モードで IME を切るのは別のプラグイン（README の「Obsidian」・PC ごとに手で設定する）
-$imSelect = @(Get-ChildItem (Join-Path $configDir 'plugins') -Directory -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'im-select' })
-if (-not $imSelect) {
-    Write-Host 'note     the IME stays on in normal mode until Vim IM Select is set up (README: Obsidian)'
+# 5. INSERT 以外で IME を切るプラグイン（このリポの obsidian\plugins\dotfiles-ime-off）。main.js と
+#    manifest.json に、それが呼ぶ tools\bin\ime.exe（install.ps1 の 7 が作る）を添えて写し、有効にする。
+#    開いている Obsidian では、写しを入れ替えた時にプラグインを読み直す。plugin:enable を使わず
+#    Obsidian の関数を eval で呼ぶのは、古いインストーラの CLI では通らないため（4 と同じ）。
+$imePluginId = 'dotfiles-ime-off'
+$imeExe = Join-Path $repo 'tools\bin\ime.exe'
+$imePluginDir = Join-Path $configDir "plugins\$imePluginId"
+if (-not (Test-Path $imeExe)) {
+    Write-Warning "$imeExe is missing (install.ps1 builds it in step 7); the IME stays on in Obsidian's normal mode"
+} else {
+    New-Item -ItemType Directory -Force $imePluginDir | Out-Null
+    $imeChanged = $false
+    foreach ($src in @(Get-ChildItem (Join-Path $repo "obsidian\plugins\$imePluginId") -File) + @(Get-Item $imeExe)) {
+        $dest = Join-Path $imePluginDir $src.Name
+        # 中身で比べる（Get-FileHash は 7 から起こした 5.1 では見つからないことがあるので使わない）
+        if ((Test-Path $dest) -and [string]::Equals([Convert]::ToBase64String([IO.File]::ReadAllBytes($dest)),
+                [Convert]::ToBase64String([IO.File]::ReadAllBytes($src.FullName)), [StringComparison]::Ordinal)) { continue }
+        Copy-Item $src.FullName $dest -Force
+        $imeChanged = $true
+    }
+    if ($imeChanged) { Write-Host "copied   $imePluginDir" } else { Write-Host "ok       $imePluginDir" }
+    $imeEnabled = (Get-EnabledPlugins) -contains $imePluginId
+    if ($vaultOpen) {
+        # 動いているか＝ime.exe を見つけて待ち受けを始めたか（無いと hooked を作らない）
+        $isRunning = "code=app.plugins.plugins['$imePluginId']?.hooked instanceof Map"
+        # eval の結果は Promise なので何も出ないことが多い。効いたかは $isRunning で確かめる
+        $load = $null
+        if (-not $imeEnabled) {
+            $load = "code=app.plugins.loadManifests().then(()=>app.plugins.enablePluginAndSave('$imePluginId'))"
+        } elseif ($imeChanged -or -not (Test-EvalTrue (Invoke-ObsidianCli 'eval' $isRunning))) {
+            $load = "code=app.plugins.disablePlugin('$imePluginId').then(()=>app.plugins.loadManifests()).then(()=>app.plugins.enablePlugin('$imePluginId'))"
+        }
+        if (-not $load) {
+            Write-Host "ok       plugin $imePluginId (enabled)"
+        } else {
+            $out = Invoke-ObsidianCli 'eval' $load
+            if (Test-EvalTrue (Invoke-ObsidianCli 'eval' $isRunning)) { Write-Host "enabled  plugin $imePluginId in the open Obsidian (the IME goes off when you leave Insert mode)" }
+            else { Write-Warning "could not load $imePluginId in the open Obsidian: $($out -join ' '). Turn it on in Obsidian's Settings > Community plugins" }
+        }
+    } elseif ($imeEnabled) {
+        Write-Host "ok       plugin $imePluginId (enabled)"
+    } else {
+        # 閉じている時は有効なプラグインの一覧に足す（次に開いた時に読まれる）
+        $listPath = Join-Path $configDir 'community-plugins.json'
+        $list = Read-ConfigJson $listPath
+        if ($null -eq $list) {
+            Write-Warning "cannot read $listPath as JSON; turn on $imePluginId in Obsidian's Settings > Community plugins"
+        } else {
+            $ids = @($list | ForEach-Object { $_ } | Where-Object { $_ -is [string] }) + $imePluginId
+            Write-ConfigJson $listPath $ids
+            Write-Host "set      $listPath ($imePluginId; loaded when Obsidian opens the vault)"
+        }
+    }
 }

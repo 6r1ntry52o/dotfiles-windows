@@ -5,9 +5,9 @@
 //   ime 1    … ON にする
 //   終了コード 0=成功・1=引数が変・2=相手に IME が無い・3=応答が無い
 //
-// 何のためにあるか: Obsidian の Vim モードで、ノーマルモードに戻った時に IME を切るため。
-// Obsidian 側のプラグイン（Vim IM Select）が「状態を取るコマンド」と「切り替えるコマンド」を
-// 外部コマンドとして呼ぶ仕組みなので、その受け皿が必要になる。
+// 何のためにあるか: Obsidian の Vim モードで、INSERT 以外の間は IME を切るため。
+// Obsidian のプラグイン（obsidian/plugins/dotfiles-ime-off）は JS から Win32 を呼べないので、
+// この exe を `ime 0` で呼ぶ。install.ps1 の 8c がプラグインの隣に写す。
 // nvim は同じことを Lua の FFI で直接やる（nvim/lua/config/ime.lua）＝こちらは呼ばない。
 //
 // 仕組み: IME の ON/OFF はウィンドウごとに持たれていて、そのウィンドウのスレッドが持つ

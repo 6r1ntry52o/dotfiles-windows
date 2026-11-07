@@ -302,7 +302,7 @@ if ($target -and ($target.TrimEnd('\') -eq $nvimSrc.TrimEnd('\'))) {
 }
 
 # 7. Tools: build ime.exe, which switches the IME off from outside the focused window.
-#    The Obsidian Vim plugin calls it; Neovim does the same thing in Lua (nvim/lua/config/ime.lua).
+#    The Obsidian plugin from 8c calls it; Neovim does the same thing in Lua (nvim/lua/config/ime.lua).
 #    Built with the csc.exe that ships with Windows (.NET Framework), so no SDK is needed.
 #    /target:winexe keeps a console window from flashing on every Esc.
 $imeSrc = Join-Path $repo 'tools\ime\Ime.cs'
@@ -456,9 +456,11 @@ try {
 }
 
 # 8c. Obsidian: the keys of LazyVim (Vim mode, Ctrl+h/j/k/l between splits, Shift+h/l between
-#     tabs). Merges obsidian\hotkeys.json into the vault's hotkeys (keeps the ones set in Obsidian),
-#     copies obsidian\vimrc to <vault>\.obsidian.vimrc, turns Vim mode on, and installs the Vimrc
-#     Support plugin through Obsidian's CLI while the vault is open (not with -SkipPackages).
+#     tabs, the IME off outside Insert mode). Merges obsidian\hotkeys.json into the vault's hotkeys
+#     (keeps the ones set in Obsidian), copies obsidian\vimrc to <vault>\.obsidian.vimrc, turns Vim
+#     mode on, installs the Vimrc Support plugin through Obsidian's CLI while the vault is open (not
+#     with -SkipPackages), and copies the plugin obsidian\plugins\dotfiles-ime-off with ime.exe from
+#     step 7 into the vault and turns it on.
 try {
     & (Join-Path $repo 'tools\Install-ObsidianKeys.ps1') -SkipPackages:$SkipPackages
 } catch {
@@ -479,8 +481,3 @@ try {
 Write-Host 'done. Restart WezTerm (or Ctrl+Shift+R to reload). Open a new tab to pick up the shell changes.'
 Write-Host 'Start nvim once and wait: LazyVim installs its plugins on the first run.'
 Write-Host 'On a new PC, run google-ime\Restore-GoogleIme.ps1 to get the Google IME key settings back.'
-# Obsidian's Vim IM Select plugin only takes an absolute path, and this repo does not
-# know where it was cloned until now, so print the value to paste into its settings.
-if (Test-Path $imeOut) {
-    Write-Host "Obsidian (Vim IM Select) commands for Windows: $imeOut  /  $imeOut {im}"
-}
