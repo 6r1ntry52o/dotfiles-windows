@@ -3,7 +3,7 @@
   "name": "Vim like Neovim (dotfiles)",
   "version": "1.0.0",
   "minAppVersion": "1.4.0",
-  "description": "Makes Vim mode work like Neovim with dotfiles-windows: shows the mode in the status bar like lualine, turns the IME off outside Insert mode, and Ctrl+O / Ctrl+I go back / forward in Normal mode. The IME part needs ime.exe next to it, which dotfiles-windows' install.ps1 puts there.",
+  "description": "Makes Vim mode work like Neovim with dotfiles-windows: shows the mode in the status bar like lualine, highlights the cursor line in the active pane, turns the IME off outside Insert mode, and Ctrl+O / Ctrl+I go back / forward in Normal mode. The IME part needs ime.exe next to it, which dotfiles-windows' install.ps1 puts there.",
   "author": "dotfiles-windows",
   "isDesktopOnly": true
 }

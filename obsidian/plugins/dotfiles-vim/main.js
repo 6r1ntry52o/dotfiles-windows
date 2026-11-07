@@ -1,4 +1,5 @@
-// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 3 つ足す。
+// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 3 つ足す
+// （もう 1 つ、今いる分割のカーソルの行を塗るのは styles.css だけでやる）。
 //
 //   1. 今のモードをステータスバーの左端に出す（NORMAL・INSERT・VISUAL・V-LINE・V-BLOCK・REPLACE・
 //      COMMAND）。色は nvim の lualine（kanagawa wave）と同じ（styles.css）

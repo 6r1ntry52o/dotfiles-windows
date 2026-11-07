@@ -1,4 +1,6 @@
-/* dotfiles-vim: ステータスバーのモード表示。色は nvim の lualine と同じ
+/* dotfiles-vim の見た目。色は nvim の配色 kanagawa に揃える（dotfiles-windows/nvim/lua/plugins/colorscheme.lua）。 */
+
+/* ステータスバーのモード表示。色は nvim の lualine と同じ
    （kanagawa.nvim の lualine テーマ・wave。文字は sumiInk0 / sumiInk3）。 */
 .status-bar-item.dotfiles-vim-mode {
   order: -1; /* lualine と同じく左端に */
@@ -26,4 +28,31 @@
 
 .status-bar-item.dotfiles-vim-mode[data-mode='command'] {
   background-color: #c0a36e; /* boatYellow2 */
+}
+
+/* カーソルの行（nvim の CursorLine・CursorLineNr）。今いる分割（Obsidian の今のタブ）の編集画面だけ
+   塗る＝nvim と同じく常に 1 つ。行番号の桁も同じ地にして、帯が番号のところで途切れないようにする。
+   - 地は background-image で重ねる。コードブロックの行のように地の色を持つ行も、その色を消さない
+   - 半透明にする。選択（ビジュアルモードも）は行の下に描かれるので、透かさないと隠れる
+   - 暗いテーマは wave、明るいテーマは lotus（nvim の background = { dark = "wave", light = "lotus" }） */
+.theme-dark .workspace-leaf.mod-active .cm-active:is(.cm-line, .cm-gutterElement) {
+  /* sumiInk6 を透かす。Obsidian の暗い地（#1e1e1e）の上で sumiInk5（#363646）くらいになる */
+  background-image: linear-gradient(rgba(84, 84, 109, 0.45), rgba(84, 84, 109, 0.45));
+}
+
+.theme-light .workspace-leaf.mod-active .cm-active:is(.cm-line, .cm-gutterElement) {
+  /* lotusWhite5（#e4d794）を透かす */
+  background-image: linear-gradient(rgba(228, 215, 148, 0.6), rgba(228, 215, 148, 0.6));
+}
+
+.workspace-leaf.mod-active .cm-lineNumbers .cm-gutterElement.cm-active {
+  font-weight: bold;
+}
+
+.theme-dark .workspace-leaf.mod-active .cm-lineNumbers .cm-gutterElement.cm-active {
+  color: #ff9e3b; /* roninYellow（nvim の CursorLineNr） */
+}
+
+.theme-light .workspace-leaf.mod-active .cm-lineNumbers .cm-gutterElement.cm-active {
+  color: #e98a00; /* lotusOrange2。白地では roninYellow は薄くて読みにくい */
 }
