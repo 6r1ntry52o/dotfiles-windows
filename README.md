@@ -195,10 +195,11 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 |---|---|---|
 | `Ctrl+h` / `Ctrl+j` / `Ctrl+k` / `Ctrl+l` | 左・下・上・右の分割（タブグループ）へ移る。どのモードでも、閲覧表示でも効く | `obsidian/hotkeys.json` |
 | `Shift+h` / `Shift+l`（ノーマルモード） | 同じタブグループの前・次のタブへ | `obsidian/vimrc` |
+| `Space` で始まるキー（ノーマルモード） | LazyVim の `<leader>`（下の表） | `obsidian/vimrc` |
 | `Ctrl+Shift+H` / `Ctrl+Shift+K` / `Ctrl+Shift+L` | 置換・リンクの挿入・チェックボックスの切り替え（Obsidian 既定の `Ctrl+H/K/L` から移した） | `obsidian/hotkeys.json` |
 | `Ctrl+o` / `Ctrl+i`（ノーマルモード） | 前・次に開いていた所へ戻る・進む（Obsidian のタブの履歴）。ノーマルモードの編集画面の外では、元のクイックスイッチャー・斜体 | `obsidian/hotkeys.json`・`obsidian/plugins/dotfiles-vim` |
-| （ステータスバーの左端） | 今のモード（下） | `obsidian/plugins/dotfiles-vim` |
-| （今いる分割の編集画面） | カーソルの行と行番号を塗る（下） | `obsidian/plugins/dotfiles-vim/styles.css` |
+| （ステータスバーの左端） | 今のモードと、押しかけのキー（下） | `obsidian/plugins/dotfiles-vim` |
+| （今いる分割の編集画面） | カーソルの行を今のモードの色で塗る（下） | `obsidian/plugins/dotfiles-vim/styles.css` |
 | （行番号） | 今の行からの距離で出す。今の行だけ本来の番号（下） | `obsidian/plugins/dotfiles-vim` |
 | （INSERT 以外） | IME を OFF にする（下） | `obsidian/plugins/dotfiles-vim` |
 
@@ -218,6 +219,21 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 - Obsidian が閉じている時に流すと、キーと Vim モードは次に開いた時に効く。プラグインは、開いている時にもう一度流すと入る（設定 → コミュニティプラグインから入れてもよい）
 - Obsidian Sync でメイン設定とホットキーを同期していれば、キーと Vim モードは他の PC にも届く。スマホは Vim モードを端末ごとに持つので、ここで on にしても変わらない
 
+`Space` は LazyVim と同じくリーダーにする。効くのは編集画面のノーマルモードだけ（閲覧表示では Space はスクロールのまま。サイドバー・グラフ・新しいタブの画面でも効かない）。
+
+| キー | LazyVim | Obsidian |
+|---|---|---|
+| `Space Space` | Find Files | クイックスイッチャー（何も打たなければ最近開いたファイル＝`<leader>fr` も兼ねる） |
+| `Space /` | Grep | すべてのファイルを検索（左のサイドバーの検索ペイン） |
+| `Space e` | Explorer | ファイルエクスプローラで今のノートを選ぶ |
+| `Space s C`・`Space :` | Commands・Command History | コマンドパレット（履歴は無い） |
+| `Space s s` | LSP Symbols | 今のノートのアウトライン（見出し） |
+| `Space b d` | Delete Buffer | 今のタブを閉じる |
+| `Space -`・`Space \|` | 下・右に分割 | 下・右に分割 |
+
+- Obsidian の Vim には `<leader>`（`mapleader`）が無いので、vimrc には `<Space>` と書く。Space には「右へ 1 文字」が付いていて、完全に合うキーは長い候補があっても待たずに動くので、先に `unmap <Space>` で外している
+- which-key のような候補の一覧は出ない。Space の後は、次のキーを押すまで待つ（時間切れは無い）。押しかけのキーはモードの右に出る（`<Space>s` など。Neovim の showcmd）
+
 `Ctrl+o/i` をプラグインのコマンドにしているのは、Obsidian がホットキーを編集画面より先に拾うため（vimrc の `nmap <C-o>` には届かない）。このコマンドは、ノーマルモードの編集画面にフォーカスがある時だけ戻る・進むを呼び、それ以外では元のクイックスイッチャー（`Ctrl+O`）・斜体（`Ctrl+I`）を呼ぶ。自分で付けたキーは既定のキーより先に試されるので、設定 → ホットキーで `Ctrl+O`・`Ctrl+I` が重なって見えても、この順で動く。nvim のジャンプリストと違い、同じノートの中の移動（`G` や検索）は戻らない。
 
 ステータスバーの左端に今のモードを出す（lualine と同じ名前と色。kanagawa wave）。編集画面でない時・閲覧表示では出さない。
@@ -230,7 +246,9 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | REPLACE（橙） | `R` |
 | COMMAND（黄） | `/`・`:` の入力欄が開いている時 |
 
-カーソルの行は、Neovim の cursorline と同じく、今いる分割の編集画面でだけ塗る（帯は常に 1 つ）。行番号は太字にし、行番号の桁も同じ地にする。色は Neovim の CursorLine・CursorLineNr に合わせ、暗いテーマは kanagawa wave（帯は `#363646` くらい・番号は `#ff9e3b`）、明るいテーマは lotus（帯は `#e4d794` を透かした色・番号は `#e98a00`）。帯は半透明にして重ねるので、選択（ビジュアルモードも）とコードブロックの地は消えない。Neovim の十字の縦（cursorcolumn）は作らない（Obsidian は文字の幅がそろわず、折り返しもあるため）。
+モードの右には、押しかけのキー（`<Space>s`・`2d` など。Neovim の showcmd）を出す。ノーマルとビジュアルの時だけ。
+
+カーソルの行は、Neovim の cursorline と同じく、今いる分割の編集画面でだけ塗る（帯は常に 1 つ）。帯の色は今のモードの色（上の表と同じ青・緑・紫・橙・黄）を透かしたもの。行番号は太字にし、行番号の桁も同じ地にする。番号の色は Neovim の CursorLineNr に合わせ、暗いテーマは `#ff9e3b`、明るいテーマは `#e98a00`（kanagawa の wave・lotus）。帯は半透明にして重ねるので、選択（ビジュアルモードも）とコードブロックの地は消えない。表のセルを編集している時は、セルのモードの色になる。Neovim の十字の縦（cursorcolumn）は作らない（Obsidian は文字の幅がそろわず、折り返しもあるため）。
 
 行番号は、Neovim（LazyVim の `number` + `relativenumber`）と同じく、今の行からの距離で出す。今の行だけ本来の番号にする（`5j` の 5 がそのまま読める）。行番号の欄は Obsidian のもの（設定 → エディタ → 行番号を表示）をそのまま使い、数字の書き方だけを変えるので、行番号を切っていれば何も出ない。Obsidian の行番号はノートの行で数えるので、折りたたんだ所や、表のように何行もまとめて描くブロックの所では、`j` で動く数と合わないことがある。
 

@@ -8,3 +8,34 @@ exmap tabPrev obcommand workspace:previous-tab
 exmap tabNext obcommand workspace:next-tab
 nmap H :tabPrev<CR>
 nmap L :tabNext<CR>
+
+" Space as the leader key, like LazyVim (normal mode in the editor only; not in reading view).
+" Obsidian's Vim has no <leader> or mapleader, so the keys say <Space>. Space moves right by default,
+" and a key that fully matches runs at once even when a longer mapping starts with it, so that
+" default goes first (unmap without a mode: the default has none, so nunmap would not find it).
+" The keys pressed so far show next to the mode in the status bar (plugins/dotfiles-vim).
+unmap <Space>
+exmap findFile obcommand switcher:open
+exmap grep obcommand global-search:open
+exmap explorer obcommand file-explorer:reveal-active-file
+exmap commands obcommand command-palette:open
+exmap outline obcommand outline:open-for-current
+exmap closeTab obcommand workspace:close
+exmap splitDown obcommand workspace:split-horizontal
+exmap splitRight obcommand workspace:split-vertical
+" Find Files: the quick switcher lists the recent files until you type (also LazyVim's <leader>fr)
+nmap <Space><Space> :findFile<CR>
+" Grep: the search pane in the left sidebar
+nmap <Space>/ :grep<CR>
+" Explorer: the file explorer, with the current note selected
+nmap <Space>e :explorer<CR>
+" Commands (LazyVim's <leader>: is the command history; Obsidian has none)
+nmap <Space>sC :commands<CR>
+nmap <Space>: :commands<CR>
+" Symbols: the outline (headings) of the current note
+nmap <Space>ss :outline<CR>
+" Delete buffer: close the tab
+nmap <Space>bd :closeTab<CR>
+" Split below / right
+nmap <Space>- :splitDown<CR>
+nmap <Space>| :splitRight<CR>

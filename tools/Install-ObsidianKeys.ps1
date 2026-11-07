@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-    Obsidian のキーを LazyVim に揃える: Vim モード・Ctrl+h/j/k/l で分割を移る・Shift+h/l で前後のタブ・
+    Obsidian のキーを LazyVim に揃える: Vim モード・Ctrl+h/j/k/l で分割を移る・Shift+h/l で前後のタブ・Space をリーダーに・
     モードの表示・INSERT 以外では IME を OFF・ノーマルモードの Ctrl+o/i で戻る・進む。
 
 .DESCRIPTION

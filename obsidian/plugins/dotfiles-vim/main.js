@@ -1,8 +1,11 @@
 // Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 4 つ足す
-// （もう 1 つ、今いる分割のカーソルの行を塗るのは styles.css だけでやる）。
+// （もう 1 つ、今いる分割のカーソルの行を塗るのは styles.css でやる。帯の色は今のモードの色で、
+// そのために編集画面（.cm-editor）に data-dotfiles-vim-mode を付ける）。
 //
 //   1. 今のモードをステータスバーの左端に出す（NORMAL・INSERT・VISUAL・V-LINE・V-BLOCK・REPLACE・
-//      COMMAND）。色は nvim の lualine（kanagawa wave）と同じ（styles.css）
+//      COMMAND）。色は nvim の lualine（kanagawa wave）と同じ（styles.css）。その右に、押しかけのキー
+//      （<Space>s・2d など。nvim の showcmd）を出す。中身は Obsidian の Vim が持つ status（押したキーを
+//      足していき、コマンドが終わると空にする）
 //   2. INSERT 以外の間は IME を必ず OFF にする（nvim/lua/config/ime.lua の Obsidian 版）。
 //      Esc で戻った直後に IME が ON のままだと、h/j/k/l や dd が IME に食われて
 //      「ひじくる」のような未確定文字になる＝ノーマルモードのキーが1つも通らない
@@ -88,6 +91,8 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     this.hooked = new Map();
     this.modeEl = this.addStatusBarItem();
     this.modeEl.addClass('dotfiles-vim-mode');
+    this.keysEl = this.addStatusBarItem();
+    this.keysEl.addClass('dotfiles-vim-keys');
 
     // repeatable: 押しっぱなしの 2 回目からもこのコマンドを試させる（でないと既定のキーの方に落ちる）
     this.addCommand({
@@ -122,6 +127,14 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     cancelAnimationFrame(this.frame);
     for (const cm of this.hooked.keys()) {
       this.unhook(cm);
+    }
+  }
+
+  // 帯の色（styles.css）のために、編集画面にモードを付ける
+  markMode(cm, mode) {
+    const dom = cm.cm6?.dom;
+    if (dom) {
+      dom.dataset.dotfilesVimMode = mode;
     }
   }
 
@@ -166,15 +179,27 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     }
     this.frame = requestAnimationFrame(() => {
       this.frame = 0;
-      const cm = this.activeVim();
-      if (cm) {
-        this.hook(cm);
-        const mode = this.modeOf(cm);
-        this.modeEl.setText(MODE_LABELS[mode]);
-        this.modeEl.dataset.mode = mode;
-      }
-      this.modeEl.toggle(!!cm);
+      this.render();
     });
+  }
+
+  render() {
+    const cm = this.activeVim();
+    // INSERT 中の status には打った文字もたまっていくので、ノーマルとビジュアルの時だけ出す
+    let keys = '';
+    if (cm) {
+      this.hook(cm);
+      const mode = this.modeOf(cm);
+      this.modeEl.setText(MODE_LABELS[mode]);
+      this.modeEl.dataset.mode = mode;
+      this.markMode(cm, mode);
+      if (mode === 'normal' || mode.startsWith('visual')) {
+        keys = cm.state.vim.status || '';
+      }
+    }
+    this.modeEl.toggle(!!cm);
+    this.keysEl.setText(keys);
+    this.keysEl.toggle(keys !== '');
   }
 
   offUnlessInsert(el) {
@@ -206,18 +231,29 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       if (wasInsert && mode !== 'insert' && mode !== 'replace') {
         this.off();
       }
+      // 今の分割でない編集画面も、帯の色をモードに合わせておく（その分割に移った時のため）
+      this.markMode(cm, this.modeOf(cm));
       this.showMode();
     };
-    const onDialog = () => this.showMode();
+    // dialog: / や : の入力欄の開け閉め。vim-keypress・vim-command-done: 押しかけのキーの表示
+    const onRender = () => this.showMode();
     cm.on('vim-mode-change', onMode);
-    cm.on('dialog', onDialog);
-    this.hooked.set(cm, { onMode, onDialog });
+    for (const event of ['dialog', 'vim-keypress', 'vim-command-done']) {
+      cm.on(event, onRender);
+    }
+    this.hooked.set(cm, { onMode, onRender });
+    this.markMode(cm, this.modeOf(cm));
   }
 
   unhook(cm) {
-    const { onMode, onDialog } = this.hooked.get(cm);
+    const { onMode, onRender } = this.hooked.get(cm);
     cm.off('vim-mode-change', onMode);
-    cm.off('dialog', onDialog);
+    for (const event of ['dialog', 'vim-keypress', 'vim-command-done']) {
+      cm.off(event, onRender);
+    }
+    if (cm.cm6?.dom) {
+      delete cm.cm6.dom.dataset.dotfilesVimMode;
+    }
     this.hooked.delete(cm);
   }
 

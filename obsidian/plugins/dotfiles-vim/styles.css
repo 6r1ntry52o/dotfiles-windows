@@ -30,19 +30,51 @@
   background-color: #c0a36e; /* boatYellow2 */
 }
 
-/* カーソルの行（nvim の CursorLine・CursorLineNr）。今いる分割（Obsidian の今のタブ）の編集画面だけ
-   塗る＝nvim と同じく常に 1 つ。行番号の桁も同じ地にして、帯が番号のところで途切れないようにする。
-   - 地は background-image で重ねる。コードブロックの行のように地の色を持つ行も、その色を消さない
-   - 半透明にする。選択（ビジュアルモードも）は行の下に描かれるので、透かさないと隠れる
-   - 暗いテーマは wave、明るいテーマは lotus（nvim の background = { dark = "wave", light = "lotus" }） */
-.theme-dark .workspace-leaf.mod-active .cm-active:is(.cm-line, .cm-gutterElement) {
-  /* sumiInk6 を透かす。Obsidian の暗い地（#1e1e1e）の上で sumiInk5（#363646）くらいになる */
-  background-image: linear-gradient(rgba(84, 84, 109, 0.45), rgba(84, 84, 109, 0.45));
+/* 押しかけのキー（nvim の showcmd）。モードのすぐ右 */
+.status-bar-item.dotfiles-vim-keys {
+  order: -1;
+  padding: 0 8px;
+  font-family: var(--font-monospace);
 }
 
-.theme-light .workspace-leaf.mod-active .cm-active:is(.cm-line, .cm-gutterElement) {
-  /* lotusWhite5（#e4d794）を透かす */
-  background-image: linear-gradient(rgba(228, 215, 148, 0.6), rgba(228, 215, 148, 0.6));
+/* カーソルの行（nvim の CursorLine・CursorLineNr）。今いる分割（Obsidian の今のタブ）の編集画面だけ
+   塗る＝nvim と同じく常に 1 つ。行番号の桁も同じ地にして、帯が番号のところで途切れないようにする。
+   - 帯の色は、上のモードの表示と同じ色を透かしたもの（NORMAL は青・INSERT は緑・VISUAL は紫・
+     REPLACE は橙・COMMAND は黄）。main.js が編集画面（.cm-editor）に data-dotfiles-vim-mode を付ける。
+     色は変数で渡すので、表のセルのように編集画面が入れ子でも、近い方の編集画面のモードの色になる
+   - 地は background-image で重ねる。コードブロックの行のように地の色を持つ行も、その色を消さない
+   - 半透明にする。選択（ビジュアルモードも）は行の下に描かれるので、透かさないと隠れる */
+.cm-editor {
+  --dotfiles-vim-rgb: 126, 156, 216; /* crystalBlue（NORMAL。Vim モードでない時も） */
+}
+
+.cm-editor[data-dotfiles-vim-mode='insert'] {
+  --dotfiles-vim-rgb: 152, 187, 108; /* springGreen */
+}
+
+.cm-editor[data-dotfiles-vim-mode^='visual'] {
+  --dotfiles-vim-rgb: 149, 127, 184; /* oniViolet */
+}
+
+.cm-editor[data-dotfiles-vim-mode='replace'] {
+  --dotfiles-vim-rgb: 255, 160, 102; /* surimiOrange */
+}
+
+.cm-editor[data-dotfiles-vim-mode='command'] {
+  --dotfiles-vim-rgb: 192, 163, 110; /* boatYellow2 */
+}
+
+.theme-dark {
+  --dotfiles-vim-line-alpha: 0.22;
+}
+
+.theme-light {
+  --dotfiles-vim-line-alpha: 0.24;
+}
+
+.workspace-leaf.mod-active .cm-active:is(.cm-line, .cm-gutterElement) {
+  --dotfiles-vim-line: rgba(var(--dotfiles-vim-rgb), var(--dotfiles-vim-line-alpha));
+  background-image: linear-gradient(var(--dotfiles-vim-line), var(--dotfiles-vim-line));
 }
 
 .workspace-leaf.mod-active .cm-lineNumbers .cm-gutterElement.cm-active {
