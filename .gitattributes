@@ -10,3 +10,4 @@
 *.db binary
 google-ime/keymap.txt text eol=lf
 obsidian/vimrc text eol=lf
+obsidian/plugins/** text eol=lf
