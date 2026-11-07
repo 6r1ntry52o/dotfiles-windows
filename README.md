@@ -196,6 +196,9 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | `Ctrl+h` / `Ctrl+j` / `Ctrl+k` / `Ctrl+l` | 左・下・上・右の分割（タブグループ）へ移る。どのモードでも、閲覧表示でも効く | `obsidian/hotkeys.json` |
 | `Shift+h` / `Shift+l`（ノーマルモード） | 同じタブグループの前・次のタブへ | `obsidian/vimrc` |
 | `Space` で始まるキー（ノーマルモード） | LazyVim の `<leader>`（下の表） | `obsidian/vimrc` |
+| `h` / `j` / `k` / `l`（ファイルエクスプローラ） | LazyVim の explorer と同じ。`j`/`k` で上下、`h` で閉じる（ファイルや閉じたフォルダでは親を閉じてそこへ）、`l` でフォルダの開閉・ファイルを開く。`Space e` で入るとすぐ使える | `obsidian/plugins/dotfiles-vim` |
+| `Ctrl+↑` / `Ctrl+↓` / `Ctrl+←` / `Ctrl+→` | 今の分割の高さを増やす・減らす、幅を減らす・増やす（LazyVim の `<C-Up>` など。40px ずつ）。サイドバーの中では幅はサイドバーの幅、分割が 1 列だけの時は開いているサイドバーを隣として動かす。INSERT と入力欄では元の動き（単語の移動など） | `obsidian/plugins/dotfiles-vim` |
+| （今いるタブグループの今のタブ） | アクセントの色にする（LazyVim の bufferline の今のバッファと同じ） | `obsidian/plugins/dotfiles-vim/styles.css` |
 | `Ctrl+Shift+H` / `Ctrl+Shift+K` / `Ctrl+Shift+L` | 置換・リンクの挿入・チェックボックスの切り替え（Obsidian 既定の `Ctrl+H/K/L` から移した） | `obsidian/hotkeys.json` |
 | `Ctrl+o` / `Ctrl+i`（ノーマルモード） | 前・次に開いていた所へ戻る・進む（Obsidian のタブの履歴）。ノーマルモードの編集画面の外では、元のクイックスイッチャー・斜体 | `obsidian/hotkeys.json`・`obsidian/plugins/dotfiles-vim` |
 | （ステータスバーの左端） | 今のモードと、押しかけのキー（下） | `obsidian/plugins/dotfiles-vim` |
@@ -209,7 +212,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 - `obsidian/vimrc` を vault 直下の `.obsidian.vimrc` に写す（写しは上書きするので、直すのはリポの方）
 - `.obsidian/app.json` の `vimMode` を `true` にする（Vim モード）
 - コミュニティプラグイン **Vimrc Support**（`obsidian-vimrc-support`）を Obsidian の CLI で入れて有効にする。その vault が Obsidian で開いている時だけ行う（閉じていると CLI が Obsidian を起動してしまうため）
-- このリポのプラグイン **Vim like Neovim (dotfiles)**（`obsidian/plugins/dotfiles-vim`。モードの表示・今の行の色・相対の行番号・IME・`Ctrl+o/i`）を、それが呼ぶ `tools/bin/ime.exe`（7 で作る）と一緒に `<vault>/.obsidian/plugins/dotfiles-vim/` へ写して有効にする（写しは上書きするので、直すのはリポの方）。開いている Obsidian には CLI の `eval` で読み込ませる（再起動は要らない）。閉じていれば有効なプラグインの一覧に足し、次に開いた時に読まれる
+- このリポのプラグイン **Vim like Neovim (dotfiles)**（`obsidian/plugins/dotfiles-vim`。モードの表示・今の行の色・相対の行番号・IME・`Ctrl+o/i`・エクスプローラの hjkl・`Ctrl+矢印`・今のタブの色）を、それが呼ぶ `tools/bin/ime.exe`（7 で作る）と一緒に `<vault>/.obsidian/plugins/dotfiles-vim/` へ写して有効にする（写しは上書きするので、直すのはリポの方）。開いている Obsidian には CLI の `eval` で読み込ませる（再起動は要らない）。閉じていれば有効なプラグインの一覧に足し、次に開いた時に読まれる
 
 いつ効くか:
 
@@ -233,6 +236,8 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 
 - Obsidian の Vim には `<leader>`（`mapleader`）が無いので、vimrc には `<Space>` と書く。Space には「右へ 1 文字」が付いていて、完全に合うキーは長い候補があっても待たずに動くので、先に `unmap <Space>` で外している
 - which-key のような候補の一覧は出ない。Space の後は、次のキーを押すまで待つ（時間切れは無い）。押しかけのキーはモードの右に出る（`<Space>s` など。Neovim の showcmd）
+
+エクスプローラの hjkl と `Ctrl+矢印` は、エクスプローラの木が持つキーの表（Obsidian の矢印・Enter と同じ所）の先頭に足す。名前の変更の入力欄では効かない（文字が打てる）。エクスプローラに入った時も IME を切る（Neovim の explorer もノーマルモードなので）。`Ctrl+矢印` は Obsidian のホットキーにしていない（ホットキーは、コマンドが何もしない時もキーを止めるので、INSERT の単語の移動が効かなくなる）。エクスプローラ以外の木（アウトライン・検索の結果など）の中では、その木の `Ctrl+矢印` のまま。
 
 `Ctrl+o/i` をプラグインのコマンドにしているのは、Obsidian がホットキーを編集画面より先に拾うため（vimrc の `nmap <C-o>` には届かない）。このコマンドは、ノーマルモードの編集画面にフォーカスがある時だけ戻る・進むを呼び、それ以外では元のクイックスイッチャー（`Ctrl+O`）・斜体（`Ctrl+I`）を呼ぶ。自分で付けたキーは既定のキーより先に試されるので、設定 → ホットキーで `Ctrl+O`・`Ctrl+I` が重なって見えても、この順で動く。nvim のジャンプリストと違い、同じノートの中の移動（`G` や検索）は戻らない。
 

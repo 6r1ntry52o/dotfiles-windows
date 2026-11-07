@@ -1,4 +1,4 @@
-// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 4 つ足す
+// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 6 つ足す
 // （もう 1 つ、今いる分割のカーソルの行を塗るのは styles.css でやる。帯の色は今のモードの色で、
 // そのために編集画面（.cm-editor）に data-dotfiles-vim-mode を付ける）。
 //
@@ -13,6 +13,12 @@
 //      代わりに Obsidian のタブの履歴）。それ以外の所では今までどおりクイックスイッチャー・斜体
 //   4. 行番号を今の行からの距離にする（nvim の number + relativenumber。今の行だけ本来の番号）。
 //      行番号そのものは Obsidian の設定（エディタ → 行番号を表示）で出す
+//   5. ファイルエクスプローラを hjkl で動かす（LazyVim の explorer: j/k 上下・h 閉じる / 親へ・
+//      l フォルダの開閉 / ファイルを開く）。エクスプローラに入った時も IME を切る（ノーマルモードと同じ扱い）
+//   6. Ctrl+矢印で分割の大きさを変える（LazyVim の <C-Up>/<C-Down>＝高さ ±・<C-Left>/<C-Right>＝幅 ∓/±）。
+//      INSERT の編集画面と入力欄では元の動き（単語の移動など）のまま
+//
+// （今のタブグループの今のタブをアクセントの色にするのは styles.css だけでやる）
 //
 // 正本: dotfiles-windows/obsidian/plugins/dotfiles-vim。install.ps1 の 8c が
 // <vault>/.obsidian/plugins/dotfiles-vim/ に写し、隣に tools/bin/ime.exe も置く
@@ -49,6 +55,18 @@ const MODE_LABELS = {
   'visual-block': 'V-BLOCK',
   replace: 'REPLACE',
   command: 'COMMAND',
+};
+
+// Ctrl+矢印 1 回で動かす幅（px）と、分割・サイドバーの最小の幅（Obsidian がドラッグで止める 200px と同じ）
+const RESIZE_STEP = 40;
+const MIN_PANE = 200;
+
+// Ctrl+矢印 → [向き, 大きくするか]
+const RESIZE_KEYS = {
+  ArrowUp: ['y', true],
+  ArrowDown: ['y', false],
+  ArrowLeft: ['x', false],
+  ArrowRight: ['x', true],
 };
 
 function cursorLine(state) {
@@ -108,7 +126,14 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       callback: () => this.runByMode('app:go-forward', 'editor:toggle-italics'),
     });
     this.registerEditorExtension(relativeLineNumbers());
+    // Ctrl+矢印はホットキーにしない。Obsidian はホットキーのコマンドが例外を投げた時しかキーを他へ回さず、
+    // INSERT や入力欄で何もしなくてもキーを止めてしまう（単語の移動が効かなくなる。本体のコードで確認）。
+    // ここは Obsidian のキーの処理（同じ window の capture・先に登録）の後に来る。エクスプローラの中は
+    // hookExplorers が足したキーが先に受けて止めるので、ここでは何もしない（defaultPrevented）
+    this.registerDomEvent(window, 'keydown', (ev) => this.onResizeKey(ev), { capture: true });
 
+    // ファイルエクスプローラの木（scope）→ 足したキー。外す時に使う
+    this.scoped = new Map();
     this.registerDomEvent(document, 'focusin', (ev) => {
       this.offUnlessInsert(ev.target);
       this.showMode();
@@ -116,10 +141,16 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     this.registerDomEvent(window, 'focus', () => this.offUnlessInsert(document.activeElement));
     this.registerEvent(this.app.workspace.on('file-open', () => this.offUnlessInsert(document.activeElement)));
     this.registerEvent(this.app.workspace.on('active-leaf-change', () => this.showMode()));
-    this.registerEvent(this.app.workspace.on('layout-change', () => this.showMode()));
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => {
+        this.showMode();
+        this.hookExplorers();
+      })
+    );
     this.app.workspace.onLayoutReady(() => {
       this.offUnlessInsert(document.activeElement);
       this.showMode();
+      this.hookExplorers();
     });
   }
 
@@ -128,6 +159,133 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     for (const cm of this.hooked.keys()) {
       this.unhook(cm);
     }
+    for (const [scope, handlers] of this.scoped) {
+      for (const handler of handlers) {
+        scope.unregister(handler);
+      }
+    }
+  }
+
+  // 文字を打っている所か: INSERT の編集画面・入力欄（名前の変更・検索・: の入力欄など）
+  isTyping(el) {
+    const cm = this.vimOf(el);
+    if (cm) {
+      return !!cm.state.vim.insertMode;
+    }
+    return el instanceof HTMLElement && (el.isContentEditable || el.matches('input, textarea, select'));
+  }
+
+  // ファイルエクスプローラの木の scope に hjkl と Ctrl+矢印を足す。木は矢印と Ctrl+矢印（動いて開く）を
+  // もう持っていて、scope は登録した順に試すので、足した分を先頭に回す（Ctrl+矢印もここで分割の大きさに）。
+  // 名前の変更の入力欄の中では何もしない（true を返すと、Obsidian は止めずに入力欄へ渡す）
+  hookExplorers() {
+    for (const leaf of this.app.workspace.getLeavesOfType('file-explorer')) {
+      const tree = leaf.view?.tree;
+      const scope = tree?.scope;
+      if (!scope || this.scoped.has(scope)) {
+        continue;
+      }
+      const key = (modifiers, k, fn) =>
+        scope.register(modifiers, k, (ev) => {
+          if (this.isTyping(ev.target)) {
+            return true;
+          }
+          fn(ev);
+          return false;
+        });
+      const handlers = [
+        key([], 'j', (ev) => tree.onKeyArrowDown(ev)),
+        key([], 'k', (ev) => tree.onKeyArrowUp(ev)),
+        key([], 'h', (ev) => tree.onKeyArrowLeft(ev)),
+        key([], 'l', (ev) => this.explorerOpen(tree, ev)),
+        ...Object.entries(RESIZE_KEYS).map(([k, [axis, grow]]) => key(['Mod'], k, () => this.resize(axis, grow))),
+      ];
+      scope.keys = [...handlers, ...scope.keys.filter((k) => !handlers.includes(k))];
+      this.scoped.set(scope, handlers);
+    }
+  }
+
+  // l: フォルダは開閉、ファイルは開く（LazyVim の explorer の l。Enter と同じ）。
+  // h は Obsidian の ← のまま: 開いたフォルダは閉じ、ファイルや閉じたフォルダでは親のフォルダを閉じてそこへ
+  explorerOpen(tree, ev) {
+    const item = tree.focusedItem;
+    if (!item || item === tree.root) {
+      return;
+    }
+    if (item.collapsible) {
+      item.setCollapsed(!item.collapsed, true);
+    } else {
+      tree.onKeyOpen(ev);
+    }
+  }
+
+  onResizeKey(ev) {
+    const target = RESIZE_KEYS[ev.key];
+    if (!target || ev.defaultPrevented || ev.isComposing || !ev.ctrlKey || ev.shiftKey || ev.altKey || ev.metaKey) {
+      return;
+    }
+    if (this.isTyping(document.activeElement)) {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    this.resize(...target);
+  }
+
+  // 今の分割を、隣（後ろ。最後なら前）とのあいだで RESIZE_STEP px 動かす（nvim の :resize と同じ向き）。
+  // サイドバーの中では、幅はサイドバーの幅。分割が 1 列だけの時の幅は、開いているサイドバーを隣として動かす
+  // （nvim で explorer が左にある時と同じ）。
+  resize(axis, grow, leaf = this.app.workspace.activeLeaf) {
+    const { workspace } = this.app;
+    if (!leaf) {
+      return;
+    }
+    const delta = grow ? RESIZE_STEP : -RESIZE_STEP;
+    const root = leaf.getRoot();
+    if (axis === 'x' && (root === workspace.leftSplit || root === workspace.rightSplit)) {
+      return this.resizeSidebar(root, delta);
+    }
+    const direction = axis === 'x' ? 'vertical' : 'horizontal';
+    for (let item = leaf.parent; item?.parent; item = item.parent) {
+      const split = item.parent;
+      if (split.direction === direction && split.children.length > 1) {
+        return this.resizeInSplit(split, item, delta);
+      }
+    }
+    if (axis === 'x') {
+      const side = [workspace.leftSplit, workspace.rightSplit].find((s) => !s.collapsed);
+      if (side) {
+        this.resizeSidebar(side, -delta);
+      }
+    }
+  }
+
+  // Obsidian がドラッグの終わりにするのと同じく、px で決めて割合（dimension）にして入れる
+  resizeInSplit(split, item, delta) {
+    const { children } = split;
+    const sizes = children.map((child) => split.getElSize(child.containerEl));
+    const i = children.indexOf(item);
+    const j = i < children.length - 1 ? i + 1 : i - 1;
+    const size = Math.min(Math.max(sizes[i] + delta, MIN_PANE), sizes[i] + sizes[j] - MIN_PANE);
+    if (size <= 0) {
+      return;
+    }
+    sizes[j] -= size - sizes[i];
+    sizes[i] = size;
+    const total = sizes.reduce((a, b) => a + b, 0);
+    children.forEach((child, k) => child.setDimension((sizes[k] / total) * 100));
+    this.app.workspace.requestResize();
+    this.app.workspace.requestSaveLayout();
+  }
+
+  resizeSidebar(side, delta) {
+    if (side.collapsed) {
+      return;
+    }
+    const max = this.app.workspace.containerEl.clientWidth - MIN_PANE;
+    side.setSize(Math.min(Math.max(side.size + delta, MIN_PANE), max));
+    this.app.workspace.requestResize();
+    this.app.workspace.requestSaveLayout();
   }
 
   // 帯の色（styles.css）のために、編集画面にモードを付ける
@@ -205,6 +363,10 @@ module.exports = class DotfilesVimPlugin extends Plugin {
   offUnlessInsert(el) {
     const cm = this.vimOf(el);
     if (!cm) {
+      // ファイルエクスプローラも nvim ではノーマルモードの窓（IME が ON だと hjkl が IME に食われる）
+      if (el instanceof Element && el.closest('.workspace-leaf-content[data-type="file-explorer"]') && !this.isTyping(el)) {
+        this.off();
+      }
       return;
     }
     this.hook(cm);

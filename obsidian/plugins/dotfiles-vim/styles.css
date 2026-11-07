@@ -30,6 +30,17 @@
   background-color: #c0a36e; /* boatYellow2 */
 }
 
+/* 今いるタブグループの今のタブを、Obsidian のアクセントの色にする（LazyVim の bufferline で今のバッファが
+   目立つのと同じ。どの分割にいるかも分かる）。タブの地と角の丸み（:before / :after）は Obsidian が
+   --tab-background-active で描くので、その変数だけを差し替える。他のタブグループの今のタブはそのまま */
+.workspace-tabs.mod-active .workspace-tab-header.is-active {
+  --tab-background-active: var(--interactive-accent);
+  --tab-text-color-active: var(--text-on-accent);
+  --tab-text-color-focused-active: var(--text-on-accent);
+  --tab-text-color-focused-active-current: var(--text-on-accent);
+  --icon-color: var(--text-on-accent);
+}
+
 /* 押しかけのキー（nvim の showcmd）。モードのすぐ右 */
 .status-bar-item.dotfiles-vim-keys {
   order: -1;
