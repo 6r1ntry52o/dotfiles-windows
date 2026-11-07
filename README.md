@@ -133,6 +133,7 @@ LazyVim（https://www.lazyvim.org）。`<leader>` はスペースで、押して
 | `<leader>fw` | 今のファイルをエクスプローラで選択状態にして開く |
 | `<leader>fy` | 今のファイルの絶対パスをコピー |
 | `Ctrl+Enter` | C/C++: 実装へ飛ぶ（下の「C/C++」）。Markdown: リンク先を開く（`[..](..)`・`[[..]]`・`#見出し`。vault の内外で同じ動き。無ければ作るか `y`/`n` で聞く＝下の「Obsidian」。画像や PDF は既定アプリ） |
+| `gaI` / `gaO` | 呼び出し元 / 呼び出し先をツリーで出す（下の窓。`l` 開く・`h` 閉じる・`L` 下を全部開く・`<CR>` 呼んでいる場所へ・`p` 窓に残ったまま見る・`q` 閉じる。`↻` は再帰）。一段だけの一覧は LazyVim の `gai` / `gao` |
 | `:CompileCommands` | `compile_commands.json` を作る（下の「C/C++」） |
 | `<leader>mb` / `<leader>me` | lazymsbuild（MSBuild の TUI）を開く・隠す / 最後のビルドのエラーを quickfix へ |
 | `<leader>mi` | clangd が今のファイルをどの構成（`Debug\|x64` など）で解析しているか（下の「C/C++」） |
@@ -296,6 +297,7 @@ LazyVim の `lang.clangd` extra を使う。clangd は MSVC と Windows SDK を�
 | 実装に飛びたい | `Ctrl+Enter`。override があればそこへ（複数なら一覧）、無ければ定義へ。型名の上では型の定義へ |
 | 定義に飛びたい | `gd`（宣言 `gD`・参照 `gr`・実装 `gI`・型定義 `gy`）。`gI` は仮想関数と派生クラスにしか効かない（clangd の仕様） |
 | 実装に飛ばず、ヘッダの宣言で止まる | ① `compile_commands.json` が無いか、中身が空か（プロジェクトの読み込みでビルドが失敗した時も、空の DB が置かれた。`lazymsbuild check` の `coverage` が `0/…`。`Ctrl+Enter` がその時に知らせる）、インデックスの作成中 ② CP932 の `.cpp` で、行末がダメ文字（`表` `能` など 2 バイト目が `\`）のコメントの直後の定義は、そのファイルを開くまで飛べない（下の「CP932 のソースと clangd」） |
+| 呼び出し元をたどりたい | `gaI`（ツリー・上の「Neovim」）。`gai` は一段だけの一覧で、1 件なら一覧を出さずにそこへ飛ぶ。別のファイルからの呼び出しはインデックスから引くので、DB が空の時やインデックスの作成中は同じファイルの中しか出ない |
 | ソースとヘッダを行き来したい | `<leader>ch` |
 | 別の `.cpp` の定義が参照に出ない・プロジェクト固有の `/I` `/D` が効かない | リポで一度 `lazymsbuild init`、その後 `:CompileCommands` |
 | ビルドしたい・エラーを見たい | `<leader>mb`（lazymsbuild の TUI。隠してもビルドは続き、終わると通知が出る）・`<leader>me`（エラーを quickfix へ） |
@@ -421,8 +423,9 @@ dotfiles-windows/
 ├── nvim/                    LazyVim/starter が元
 │   ├── lua/config/          options・keymaps・autocmds の上書きと、
 │   │                        encoding・ime・winpath・vault（紫の表示）・machine（~/.dotfiles.json を読む）・jump（Ctrl+Enter）・newnote（新規ノートの場所）・wezterm・
-│   │                        clangd_profile（clangd がどの構成で解析しているか）・utf8_mirror（CP932 のソースを clangd に UTF-8 で見せる）
-│   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme
+│   │                        clangd_profile（clangd がどの構成で解析しているか）・utf8_mirror（CP932 のソースを clangd に UTF-8 で見せる）・
+│   │                        call_tree（呼び出しの階層のツリー）
+│   ├── lua/plugins/         encoding・obsidian・snacks・clangd・lazymsbuild・colorscheme・gitsigns・call_tree
 │   ├── lazy-lock.json       プラグインの版の固定
 │   └── lazyvim.json         入れた extras
 ├── tools/                   Survey-Encoding.ps1・Install-Lazymsbuild.ps1・Install-MsbuildExtractor.ps1・Install-AiAgents.ps1・
