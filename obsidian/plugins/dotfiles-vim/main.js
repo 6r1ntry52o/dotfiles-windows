@@ -1,4 +1,4 @@
-// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 3 つ足す
+// Obsidian の Vim モードを Neovim（LazyVim）に寄せる。dotfiles-windows の nvim と同じ動きを 4 つ足す
 // （もう 1 つ、今いる分割のカーソルの行を塗るのは styles.css だけでやる）。
 //
 //   1. 今のモードをステータスバーの左端に出す（NORMAL・INSERT・VISUAL・V-LINE・V-BLOCK・REPLACE・
@@ -8,6 +8,8 @@
 //      「ひじくる」のような未確定文字になる＝ノーマルモードのキーが1つも通らない
 //   3. ノーマルモードの Ctrl+O / Ctrl+I で、前・次に開いていた所へ戻る・進む（nvim のジャンプリストの
 //      代わりに Obsidian のタブの履歴）。それ以外の所では今までどおりクイックスイッチャー・斜体
+//   4. 行番号を今の行からの距離にする（nvim の number + relativenumber。今の行だけ本来の番号）。
+//      行番号そのものは Obsidian の設定（エディタ → 行番号を表示）で出す
 //
 // 正本: dotfiles-windows/obsidian/plugins/dotfiles-vim。install.ps1 の 8c が
 // <vault>/.obsidian/plugins/dotfiles-vim/ に写し、隣に tools/bin/ime.exe も置く
@@ -29,7 +31,8 @@
 'use strict';
 
 const { MarkdownView, Plugin } = require('obsidian');
-const { EditorView } = require('@codemirror/view');
+const { Compartment } = require('@codemirror/state');
+const { EditorView, lineNumbers } = require('@codemirror/view');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
@@ -44,6 +47,35 @@ const MODE_LABELS = {
   replace: 'REPLACE',
   command: 'COMMAND',
 };
+
+function cursorLine(state) {
+  return state.doc.lineAt(state.selection.main.head).number;
+}
+
+// 行番号を今の行からの距離にする。行番号の欄は Obsidian のもの（行番号を切っていれば出ない）をそのまま
+// 使い、数字の書き方だけを渡す。lineNumbers() は [書き方の設定, gutters(), 行番号の欄] を返すので、
+// 先頭の設定だけ取る（欄まで足すと、行番号を切っていても出てしまう）。Obsidian は書き方を渡して
+// いないので、ぶつからない。欄は書き方の設定が変わった時しか書き直さないので、カーソルの行が変わる
+// たびに設定を作り直して書き直させる。
+function relativeLineNumbers() {
+  const numbers = new Compartment();
+  const config = () =>
+    lineNumbers({
+      formatNumber: (n, state) => {
+        const cursor = cursorLine(state);
+        // 行数より大きい n は欄の幅を決める呼び出し。幅がカーソルで変わらないよう、そのまま返す
+        return String(n > state.doc.lines || n === cursor ? n : Math.abs(n - cursor));
+      },
+    })[0];
+  return [
+    numbers.of(config()),
+    EditorView.updateListener.of((update) => {
+      if (cursorLine(update.startState) !== cursorLine(update.state)) {
+        update.view.dispatch({ effects: numbers.reconfigure(config()) });
+      }
+    }),
+  ];
+}
 
 module.exports = class DotfilesVimPlugin extends Plugin {
   onload() {
@@ -70,6 +102,7 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       repeatable: true,
       callback: () => this.runByMode('app:go-forward', 'editor:toggle-italics'),
     });
+    this.registerEditorExtension(relativeLineNumbers());
 
     this.registerDomEvent(document, 'focusin', (ev) => {
       this.offUnlessInsert(ev.target);

@@ -30,7 +30,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 7c | `tools/bin/utf8-mirror.exe` をビルドする（CP932 のソースを clangd に UTF-8 で見せる＝下の「CP932 のソースと clangd」。有効にするのは Neovim） |
 | 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
 | 8b | `obsidian/snippets/*.css`（note/ のチェックボックスの状態の見た目）を vault の `.obsidian/snippets` に写し、Obsidian が開いていれば有効にする（下の「Obsidian」） |
-| 8c | Obsidian のキーを LazyVim に揃える（Vim モード・`Ctrl+h/j/k/l` で分割・`Shift+h/l` でタブ・`Ctrl+o/i` で戻る・進む・モードの表示・今の行の色・INSERT 以外で IME を OFF）。ホットキーを vault に混ぜ、vimrc を写し、Vim モードを on にし、Obsidian が開いていればプラグイン Vimrc Support を入れ、このリポのプラグイン dotfiles-vim を `ime.exe` と一緒に写して有効にする（下の「Obsidian」。Vimrc Support の取得は `-SkipPackages` で飛ばせる） |
+| 8c | Obsidian のキーを LazyVim に揃える（Vim モード・`Ctrl+h/j/k/l` で分割・`Shift+h/l` でタブ・`Ctrl+o/i` で戻る・進む・モードの表示・今の行の色・相対の行番号・INSERT 以外で IME を OFF）。ホットキーを vault に混ぜ、vimrc を写し、Vim モードを on にし、Obsidian が開いていればプラグイン Vimrc Support を入れ、このリポのプラグイン dotfiles-vim を `ime.exe` と一緒に写して有効にする（下の「Obsidian」。Vimrc Support の取得は `-SkipPackages` で飛ばせる） |
 | 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする。vault がある PC では、どのリポから起動しても vault を読めるようにし、note/ を守るフックをつなぐ（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
 
 管理者権限は要らない。次は `install.ps1` がやらないので、要る PC だけ手で行う。
@@ -198,6 +198,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | `Ctrl+o` / `Ctrl+i`（ノーマルモード） | 前・次に開いていた所へ戻る・進む（Obsidian のタブの履歴）。ノーマルモードの編集画面の外では、元のクイックスイッチャー・斜体 | `obsidian/hotkeys.json`・`obsidian/plugins/dotfiles-vim` |
 | （ステータスバーの左端） | 今のモード（下） | `obsidian/plugins/dotfiles-vim` |
 | （今いる分割の編集画面） | カーソルの行と行番号を塗る（下） | `obsidian/plugins/dotfiles-vim/styles.css` |
+| （行番号） | 今の行からの距離で出す。今の行だけ本来の番号（下） | `obsidian/plugins/dotfiles-vim` |
 | （INSERT 以外） | IME を OFF にする（下） | `obsidian/plugins/dotfiles-vim` |
 
 8c がすること（何度流してもよい）:
@@ -206,7 +207,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 - `obsidian/vimrc` を vault 直下の `.obsidian.vimrc` に写す（写しは上書きするので、直すのはリポの方）
 - `.obsidian/app.json` の `vimMode` を `true` にする（Vim モード）
 - コミュニティプラグイン **Vimrc Support**（`obsidian-vimrc-support`）を Obsidian の CLI で入れて有効にする。その vault が Obsidian で開いている時だけ行う（閉じていると CLI が Obsidian を起動してしまうため）
-- このリポのプラグイン **Vim like Neovim (dotfiles)**（`obsidian/plugins/dotfiles-vim`。モードの表示・今の行の色・IME・`Ctrl+o/i`）を、それが呼ぶ `tools/bin/ime.exe`（7 で作る）と一緒に `<vault>/.obsidian/plugins/dotfiles-vim/` へ写して有効にする（写しは上書きするので、直すのはリポの方）。開いている Obsidian には CLI の `eval` で読み込ませる（再起動は要らない）。閉じていれば有効なプラグインの一覧に足し、次に開いた時に読まれる
+- このリポのプラグイン **Vim like Neovim (dotfiles)**（`obsidian/plugins/dotfiles-vim`。モードの表示・今の行の色・相対の行番号・IME・`Ctrl+o/i`）を、それが呼ぶ `tools/bin/ime.exe`（7 で作る）と一緒に `<vault>/.obsidian/plugins/dotfiles-vim/` へ写して有効にする（写しは上書きするので、直すのはリポの方）。開いている Obsidian には CLI の `eval` で読み込ませる（再起動は要らない）。閉じていれば有効なプラグインの一覧に足し、次に開いた時に読まれる
 
 いつ効くか:
 
@@ -229,6 +230,8 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | COMMAND（黄） | `/`・`:` の入力欄が開いている時 |
 
 カーソルの行は、Neovim の cursorline と同じく、今いる分割の編集画面でだけ塗る（帯は常に 1 つ）。行番号は太字にし、行番号の桁も同じ地にする。色は Neovim の CursorLine・CursorLineNr に合わせ、暗いテーマは kanagawa wave（帯は `#363646` くらい・番号は `#ff9e3b`）、明るいテーマは lotus（帯は `#e4d794` を透かした色・番号は `#e98a00`）。帯は半透明にして重ねるので、選択（ビジュアルモードも）とコードブロックの地は消えない。Neovim の十字の縦（cursorcolumn）は作らない（Obsidian は文字の幅がそろわず、折り返しもあるため）。
+
+行番号は、Neovim（LazyVim の `number` + `relativenumber`）と同じく、今の行からの距離で出す。今の行だけ本来の番号にする（`5j` の 5 がそのまま読める）。行番号の欄は Obsidian のもの（設定 → エディタ → 行番号を表示）をそのまま使い、数字の書き方だけを変えるので、行番号を切っていれば何も出ない。Obsidian の行番号はノートの行で数えるので、折りたたんだ所や、表のように何行もまとめて描くブロックの所では、`j` で動く数と合わないことがある。
 
 Obsidian の Vim モードでも、Neovim と同じく INSERT 以外では IME を必ず OFF にする。Esc で戻った直後に IME が ON のままだと、`h/j/k/l` が IME に食われてノーマルモードのキーが通らないため。
 
@@ -412,7 +415,7 @@ dotfiles-windows/
 ├── ai/skills/               AI エージェントのスキル（Claude Code と Copilot CLI が同じものを読む）・vault-note/scripts/vault-links.ps1
 ├── ai/hooks/                note-guard.ps1（note/ を守る PreToolUse フック・両エージェント共通）
 ├── obsidian/snippets/       vault に写す CSS（tools/Install-ObsidianSnippets.ps1 が写す）
-├── obsidian/                hotkeys.json・vimrc・plugins/dotfiles-vim（LazyVim と同じキー・モードの表示・今の行の色・IME。tools/Install-ObsidianKeys.ps1 が vault に入れる）
+├── obsidian/                hotkeys.json・vimrc・plugins/dotfiles-vim（LazyVim と同じキー・モードの表示・今の行の色・相対の行番号・IME。tools/Install-ObsidianKeys.ps1 が vault に入れる）
 ├── tools/file-suggest/      FileSuggest.cs（→ bin/file-suggest.exe・Claude Code の @ の候補に note/ を足す）
 ├── wsl/                     install.sh・osc7.sh / osc7.zsh（現在地の通知）・aliases.sh
 ├── nvim/                    LazyVim/starter が元
@@ -441,7 +444,7 @@ dotfiles-windows/
 - `$PROFILE` と WSL の `~/.bashrc`・`~/.zshrc` から、末尾が `# managed by dotfiles-windows/install.ps1` の行を消す
 - `cmd /c rmdir %LOCALAPPDATA%\nvim` で junction を外す（`nvim.bak-*` があれば戻す）。プラグインも消すなら `%LOCALAPPDATA%\nvim-data` の `lazy` と `mason` を消す（`nvim-data` ごと消すと Recent Files・Projects・セッション・undo の履歴も消える）
 - Google 日本語入力は `config1.db.bak-*` を元の名前に戻す
-- Obsidian のモードの表示・今の行の色・IME・`Ctrl+o/i` は、設定 → コミュニティプラグインで Vim like Neovim (dotfiles) を無効化して `<vault>/.obsidian/plugins/dotfiles-vim` を消し、設定 → ホットキーでその 2 つのコマンドのキーを消す
+- Obsidian のモードの表示・今の行の色・相対の行番号・IME・`Ctrl+o/i` は、設定 → コミュニティプラグインで Vim like Neovim (dotfiles) を無効化して `<vault>/.obsidian/plugins/dotfiles-vim` を消し、設定 → ホットキーでその 2 つのコマンドのキーを消す
 - Obsidian のキーは、設定 → エディタで Vim キーバインドを切り、設定 → ホットキーで `obsidian/hotkeys.json` の `editor:` の 7 つのコマンドを既定に戻し、Vimrc Support を無効化して `<vault>/.obsidian.vimrc` を消す
 - CP932 の写しは、使っているリポごとに `tools\bin\utf8-mirror.exe disable <リポ>`（一覧は `utf8-mirror status`）。`%LOCALAPPDATA%\clangd\config.yaml` の節と `%LOCALAPPDATA%\utf8-mirror` の写しが消える
 - lazymsbuild は `%LOCALAPPDATA%\Programs\lazymsbuild` を消し、ユーザーの PATH からその行を外す（状態は `%LOCALAPPDATA%\lazymsbuild`、抽出ツールは `%LOCALAPPDATA%\msbuild-extractor`）
