@@ -1,5 +1,6 @@
 /* vault-task-status — task states for notes that AI agents may mark but not rewrite: an agent
    turns "- [ ]" into "- [a]" when it has done the task, and the owner checks it as [d] or [x].
+   The owner marks a line of their own in the agents' area (nexus/) as [r].
    Source: dotfiles-windows/obsidian/snippets/ (https://github.com/6r1ntry52o/dotfiles-windows).
    Its install.ps1 copies it into the vault and overwrites the copy; other copies (custom_vault)
    are taken from there too, so edit the source.
@@ -8,17 +9,19 @@
      [a]  done by an AI agent, not checked    purple box, sparkle; the text stays as it is
      [d]  done and checked, kept to look back  green box, bookmark; muted text, not struck through
      [x]  done and checked                     (Obsidian's own look: check mark, struck through)
+     [r]  written by the owner in the AI area  blue box, pencil; the text stays as it is
 
    Obsidian fills every checkbox whose character is not a space and draws the check mark as a
    mask on ::after; only [x] is struck through. So a state needs only its colour and its mark.
    Where data-task sits:
      Live Preview          the line (.HyperMD-task-line) and the <input> itself
      reading view, Tasks   the <li>, with the <input> as its child (or inside its <p>)
-   Colours can be changed from another snippet: --vault-task-a / --vault-task-d on body. */
+   Colours can be changed from another snippet: --vault-task-a / -d / -r on body. */
 
 body {
   --vault-task-a: var(--color-purple);
   --vault-task-d: var(--color-green);
+  --vault-task-r: var(--color-blue);
 }
 
 /* --- [a] --- */
@@ -58,4 +61,19 @@ ul > li.task-list-item[data-task="d"] {
 ul > li.task-list-item[data-task="d"] ul,
 ul > li.task-list-item[data-task="d"] ol {
   color: var(--text-normal);
+}
+
+/* --- [r] --- */
+input.task-list-item-checkbox[data-task="r"]:checked,
+li.task-list-item[data-task="r"] > input.task-list-item-checkbox:checked,
+li.task-list-item[data-task="r"] > p > input.task-list-item-checkbox:checked {
+  --checkbox-color: var(--vault-task-r);
+  --checkbox-color-hover: var(--vault-task-r);
+}
+input.task-list-item-checkbox[data-task="r"]:checked::after,
+li.task-list-item[data-task="r"] > input.task-list-item-checkbox:checked::after,
+li.task-list-item[data-task="r"] > p > input.task-list-item-checkbox:checked::after {
+  mask-size: 66%;
+  mask-position: 50% 50%;
+  mask-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='black' d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/></svg>");
 }
