@@ -17,10 +17,12 @@ set, this PC has no vault: say so and go on without it.
 - Before planning work that comes from a note, read that note and the notes it links to, and keep
   the line you act on in view. If your plan drifts from what the note says, stop and ask.
 
-## Read-only, with one exception
+## Read-only, with two exceptions
 
 - Do not create, rewrite, reformat, move or delete anything under `note/`. Do not answer inside a
   note or add sections to it.
+- On a plain list line the user wrote as `- ` you may insert a `[[link]]` to a related note. Do not
+  turn it into a task.
 - On a line the user wrote as `- [ ]` you may:
   - insert a `[[link]]` to a related note, and
   - when you have done that task, change `- [ ]` to `- [a]` and add the `[[link]]` to your
