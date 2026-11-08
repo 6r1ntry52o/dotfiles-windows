@@ -30,6 +30,8 @@ exmap outline obcommand outline:open-for-current
 exmap closeTab obcommand workspace:close
 exmap splitDown obcommand workspace:split-horizontal
 exmap splitRight obcommand workspace:split-vertical
+exmap leftSidebar obcommand app:toggle-left-sidebar
+exmap rightSidebar obcommand app:toggle-right-sidebar
 " Find Files: the quick switcher lists the recent files until you type (also LazyVim's <leader>fr)
 nmap <Space><Space> :findFile<CR>
 " Grep: the search pane in the left sidebar
@@ -46,3 +48,7 @@ nmap <Space>bd :closeTab<CR>
 " Split below / right
 nmap <Space>- :splitDown<CR>
 nmap <Space>| :splitRight<CR>
+" Sidebars: open / close the left one (files, search) and the right one (outline, backlinks).
+" Not in LazyVim; ] is Vim's "next / forward" bracket, so it takes the right side
+nmap <Space>\ :leftSidebar<CR>
+nmap <Space>] :rightSidebar<CR>

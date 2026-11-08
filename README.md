@@ -234,6 +234,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | `Space s s` | LSP Symbols | 今のノートのアウトライン（見出し） |
 | `Space b d` | Delete Buffer | 今のタブを閉じる |
 | `Space -`・`Space \|` | 下・右に分割 | 下・右に分割 |
+| `Space \`・`Space ]` | （無い） | 左・右のサイドバーを開く・閉じる（`]` は Vim の「次・先」の括弧なので右） |
 
 - キーを足す時は `obsidian/vimrc` に `exmap <名前> obcommand <コマンド>` と `nmap <Space><キー> :<名前><CR>` を書く。編集画面の中は Vim がそれを読み、編集画面の外は `dotfiles-vim` が同じ行を読む（プラグインは読み込む時に 1 回読むので、変えたら Obsidian を開き直す）
 - Obsidian の Vim には `<leader>`（`mapleader`）が無いので、vimrc には `<Space>` と書く。Space には「右へ 1 文字」が付いていて、完全に合うキーは長い候補があっても待たずに動くので、先に `unmap <Space>` で外している
