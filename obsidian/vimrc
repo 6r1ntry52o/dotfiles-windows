@@ -3,6 +3,11 @@
 " overwrites the copy, so edit the source. The plugin reads it once per Obsidian window: restart
 " Obsidian after a change. Ctrl+h/j/k/l (move between splits) are hotkeys in obsidian/hotkeys.json.
 
+" Yank to the Windows clipboard, and p pastes what other apps copied, like LazyVim's
+" clipboard=unnamedplus. Vimrc Support syncs the unnamed register with the clipboard when a key is
+" released, the mouse clicks or the window gets focus (it has no other way to know).
+set clipboard=unnamed
+
 " Shift+h / Shift+l: previous / next tab in the same tab group, like the buffers in LazyVim
 exmap tabPrev obcommand workspace:previous-tab
 exmap tabNext obcommand workspace:next-tab
