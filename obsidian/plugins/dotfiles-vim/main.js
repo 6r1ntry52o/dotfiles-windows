@@ -22,6 +22,20 @@
 //      キーを足すのは vimrc だけでよい
 //   8. ヤンクした所を一瞬光らせる（nvim の vim.hl.on_yank。LazyVim が TextYankPost で呼ぶ）。色は styles.css
 //
+// 9 は nvim の真似ではなく守り。ノートを、別のノートの中身で丸ごと上書きする保存を止める。2026-11-07〜08 に
+// core の vault で 4 回、開いているノートが別のノートの（古い版の）中身に入れ替わって保存された（Vim を
+// 入れた日から・きっかけは未確定）。中身は、同じファイルを開いている別のタブから届いていた（Obsidian は
+// 1 つのタブで変わった中身を quick-preview で他のタブに配り、配られた側は undo できる「set」として入れる）。
+// どこから来ても保存は vault.modify を通るので、そこで見る（ファイルの外からの書き換えと Sync は通らない）。
+//   止める: 前の中身の 5 割を超える行が入れ替わり、新しい中身が別のノートの今の中身か、ファイルの復元
+//           （File recovery・既定で 7 日）に残る別のノートの版と、空白を除いて同じ（1 行の途中の改行が
+//           1 つ増えただけの写しもあった）。作って 10 分のうちのノートは見ない（新しいノートに写すのは止めない）
+//   止めたら: 書かずに、そのファイルを開いているタブをディスクの中身に戻して知らせる（戻す前の中身は u で
+//           出る）。わざとなら、コマンド Allow the next overwrite… の後に保存し直す
+//   残す: 止めた時と、どれとも一致しないが丸ごと入れ替わった時に、直前のキー・タブの切り替え・配られた中身の
+//         大きさを %LOCALAPPDATA%\dotfiles-vim\overwrite.jsonl に 1 行で（きっかけを突き止めるため）。
+//         INSERT と入力欄で打った文字は残さない（· にする）。ノートの文も残さない
+//
 // （今のタブグループの今のタブをアクセントの色にするのは styles.css だけでやる）
 //
 // 正本: dotfiles-windows/obsidian/plugins/dotfiles-vim。install.ps1 の 8c が
@@ -43,7 +57,7 @@
 // 書く。自分で付けたキーは既定のキー（クイックスイッチャーの Ctrl+O・斜体の Ctrl+I）より先に試される。
 'use strict';
 
-const { MarkdownView, Plugin } = require('obsidian');
+const { MarkdownView, Notice, Plugin } = require('obsidian');
 const { Compartment, StateEffect, StateField } = require('@codemirror/state');
 const { Decoration, EditorView, lineNumbers } = require('@codemirror/view');
 const { execFile } = require('child_process');
@@ -142,6 +156,46 @@ const yankField = StateField.define({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+// 9 の上書きの守り: 見る大きさ（空白を除いた文字数）・残っていれば止めない行の割合・見ない新しいノートの
+// 若さ・わざとの上書きを通す間・きっかけを探すために覚えておく出来事の数
+const GUARD_MIN_CHARS = 20;
+const GUARD_KEEP_RATIO = 0.5;
+const GUARD_NEW_FILE_MS = 10 * 60 * 1000;
+const GUARD_ALLOW_MS = 60 * 1000;
+const GUARD_RECENT = 80;
+const GUARD_LOG = path.join(process.env.LOCALAPPDATA || require('os').tmpdir(), 'dotfiles-vim', 'overwrite.jsonl');
+
+// 空白（改行・全角の空白を含む）を除いた中身。改行が 1 つ増えただけの写しも同じと見る
+function squash(text) {
+  return text.replace(/\s+/g, '');
+}
+
+// 前の中身の行（空行は数えない）のうち、新しい中身に残っている割合。前が空なら 0
+function keptRatio(before, after) {
+  const left = new Map();
+  for (const line of after.split(/\r?\n/)) {
+    const t = line.trim();
+    if (t) {
+      left.set(t, (left.get(t) || 0) + 1);
+    }
+  }
+  let total = 0;
+  let kept = 0;
+  for (const line of before.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) {
+      continue;
+    }
+    total++;
+    const n = left.get(t);
+    if (n) {
+      kept++;
+      left.set(t, n - 1);
+    }
+  }
+  return total ? kept / total : 0;
+}
+
 module.exports = class DotfilesVimPlugin extends Plugin {
   onload() {
     const ime = path.join(this.app.vault.adapter.getBasePath(), this.manifest.dir, 'ime.exe');
@@ -207,6 +261,7 @@ module.exports = class DotfilesVimPlugin extends Plugin {
       this.showMode();
       this.hookExplorers();
     });
+    this.guardOverwrite();
   }
 
   onunload() {
@@ -618,6 +673,199 @@ module.exports = class DotfilesVimPlugin extends Plugin {
     const cm = this.vimOf(document.activeElement);
     const normal = cm && !cm.state.vim.insertMode && !cm.state.vim.visualMode;
     this.app.commands.executeCommandById(normal ? inNormal : otherwise);
+  }
+
+  // 9. vault.modify を包んで、別のノートの中身での丸ごとの上書きを止める。外す時は、間に他のプラグインが
+  // 包んでいなければ元に戻す。きっかけを探すための出来事も覚え始める
+  guardOverwrite() {
+    this.recent = [];
+    this.allowUntil = 0;
+    this.addCommand({
+      id: 'allow-overwrite',
+      name: "Allow the next overwrite with another note's text (1 minute)",
+      callback: () => {
+        this.allowUntil = Date.now() + GUARD_ALLOW_MS;
+        new Notice('次の 1 回（1 分のうち）は、別のノートの中身での上書きを止めません。保存し直してください。');
+      },
+    });
+    const { vault } = this.app;
+    const modify = vault.modify;
+    const plugin = this;
+    const guarded = async function (file, data, options) {
+      // 呼んだ所は await の前でしか取れない
+      const stack = new Error().stack;
+      if (await plugin.blockOverwrite(file, data, stack)) {
+        return;
+      }
+      return modify.call(this, file, data, options);
+    };
+    vault.modify = guarded;
+    this.register(() => {
+      if (vault.modify === guarded) {
+        vault.modify = modify;
+      }
+    });
+
+    const note = (entry) => {
+      this.recent.push({ t: Date.now(), ...entry });
+      if (this.recent.length > GUARD_RECENT) {
+        this.recent.shift();
+      }
+    };
+    const where = () => ({ leaf: this.app.workspace.activeLeaf?.id, file: this.app.workspace.getActiveFile()?.path });
+    this.registerDomEvent(
+      window,
+      'keydown',
+      (ev) => {
+        if (MODIFIER_KEYS.includes(ev.key)) {
+          return;
+        }
+        const cm = this.vimOf(ev.target);
+        const mods = (ev.ctrlKey ? 'C-' : '') + (ev.altKey ? 'A-' : '') + (ev.metaKey ? 'M-' : '');
+        // 打っている文字は残さない（修飾キーの付いたキーと、Esc などの名前のあるキーは残す）
+        const text = !mods && ev.key.length === 1 && this.isTyping(ev.target);
+        note({ ev: 'key', k: text ? '·' : mods + ev.key, mode: cm ? this.modeOf(cm) : 'ui', ...where() });
+      },
+      { capture: true }
+    );
+    this.registerEvent(this.app.workspace.on('file-open', (file) => note({ ev: 'open', ...where(), opened: file?.path })));
+    this.registerEvent(this.app.workspace.on('active-leaf-change', () => note({ ev: 'leaf', ...where() })));
+    this.registerEvent(
+      this.app.workspace.on('layout-change', () => note({ ev: 'layout', leaves: this.app.workspace.getLeavesOfType('markdown').length }))
+    );
+    // 配られた中身（打つたびに来るので、同じファイルが続く間は 1 つにまとめる）
+    this.registerEvent(
+      this.app.workspace.on('quick-preview', (file, data) => {
+        const last = this.recent[this.recent.length - 1];
+        if (last && last.ev === 'preview' && last.path === file?.path) {
+          last.t = Date.now();
+          last.chars = data.length;
+          last.n++;
+          return;
+        }
+        note({ ev: 'preview', path: file?.path, chars: data.length, n: 1, ...where() });
+      })
+    );
+    this.registerEvent(this.app.vault.on('modify', (file) => note({ ev: 'modify', path: file.path })));
+    this.registerEvent(this.app.vault.on('rename', (file, old) => note({ ev: 'rename', path: file.path, old })));
+  }
+
+  // 止めるなら true。ここで例外が出たら止めない（保存できない方が困る）
+  async blockOverwrite(file, data, stack) {
+    try {
+      if (file.extension !== 'md') {
+        return false;
+      }
+      const before = await this.app.vault.cachedRead(file);
+      const after = squash(data);
+      if (before === data || after.length < GUARD_MIN_CHARS || after === squash(before)) {
+        return false;
+      }
+      if (keptRatio(before, data) > GUARD_KEEP_RATIO || Date.now() - file.stat.ctime < GUARD_NEW_FILE_MS) {
+        return false;
+      }
+      const from = await this.sameAsOtherNote(file, data, after);
+      if (from && Date.now() < this.allowUntil) {
+        this.allowUntil = 0;
+        this.logOverwrite('allowed', file, before, data, from, stack);
+        return false;
+      }
+      this.logOverwrite(from ? 'blocked' : 'replaced', file, before, data, from, stack);
+      if (!from) {
+        return false;
+      }
+      this.restoreFromDisk(file);
+      const when = from.ts ? `（${new Date(from.ts).toLocaleString('ja-JP')} の版）` : '';
+      new Notice(
+        `「${file.basename}」を「${from.path}」${when}の中身で上書きしようとしたので、保存を止めてディスクの中身に戻しました` +
+          '（戻す前の中身は u で出ます）。わざとなら、コマンド「Allow the next overwrite…」の後に保存し直してください。' +
+          `記録: ${GUARD_LOG}`,
+        0
+      );
+      return true;
+    } catch (err) {
+      console.error('dotfiles-vim: the overwrite guard failed; saving anyway', err);
+      return false;
+    }
+  }
+
+  // 新しい中身（空白を除いて after）と同じ別のノート: 今の中身（大きさの近いものだけ読む）、次にファイルの
+  // 復元に残る版（Obsidian の内部の口。無い版の Obsidian では見ない）。見つからなければ null
+  async sameAsOtherNote(file, data, after) {
+    const { vault } = this.app;
+    const lo = after.length;
+    const hi = Buffer.byteLength(data) * 2 + 64;
+    for (const other of vault.getMarkdownFiles()) {
+      if (other !== file && other.stat.size >= lo && other.stat.size <= hi && squash(await vault.cachedRead(other)) === after) {
+        return { path: other.path, ts: null };
+      }
+    }
+    const db = this.app.internalPlugins?.getPluginById?.('file-recovery')?.instance?.db;
+    if (!db) {
+      return null;
+    }
+    let found = null;
+    let cursor = await db.transaction('backups', 'readonly').store.openCursor();
+    while (cursor) {
+      const { path: p, ts, data: d } = cursor.value;
+      if (p !== file.path && typeof d === 'string' && d.length >= lo && d.length <= hi && squash(d) === after) {
+        // 一番新しい版を出す
+        if (!found || ts > found.ts) {
+          found = { path: p, ts };
+        }
+      }
+      cursor = await cursor.continue();
+    }
+    return found;
+  }
+
+  // 止めた後、そのファイルを開いているタブをディスクの中身に戻す。配られた中身が残っていると、次の保存で
+  // また書こうとするため。Obsidian の外の変更の読み直し（差分で入れるので u で戻せる）を使う。いまは保存の
+  // 途中（save の中）なので、それが終わってから
+  restoreFromDisk(file) {
+    setTimeout(() => {
+      for (const leaf of this.app.workspace.getLeavesOfType('markdown')) {
+        const { view } = leaf;
+        if (view.file !== file || typeof view.loadFileInternal !== 'function') {
+          continue;
+        }
+        view.lastSavedData = null;
+        view.dirty = false;
+        view.loadFileInternal(file, false).catch((err) => console.error('dotfiles-vim: could not reload', file.path, err));
+      }
+    }, 0);
+  }
+
+  logOverwrite(kind, file, before, data, from, stack) {
+    const size = (text) => ({ chars: text.length, lines: text.split(/\r?\n/).length });
+    const entry = {
+      at: new Date().toISOString(),
+      kind,
+      path: file.path,
+      from,
+      before: size(before),
+      after: size(data),
+      kept: Math.round(keptRatio(before, data) * 100) / 100,
+      stack: (stack || '').split('\n').slice(2, 12).map((s) => s.trim()),
+      leaves: this.app.workspace.getLeavesOfType('markdown').map((leaf) => {
+        const text = leaf.view.editor?.getValue();
+        return {
+          id: leaf.id,
+          file: leaf.view.file?.path,
+          active: leaf === this.app.workspace.activeLeaf,
+          mode: leaf.view.getMode?.(),
+          chars: text?.length,
+          holdsNew: text === data,
+        };
+      }),
+      recent: this.recent.slice(),
+    };
+    try {
+      fs.mkdirSync(path.dirname(GUARD_LOG), { recursive: true });
+      fs.appendFileSync(GUARD_LOG, JSON.stringify(entry) + '\n');
+    } catch (err) {
+      console.error('dotfiles-vim: could not write', GUARD_LOG, err);
+    }
   }
 
   off() {

@@ -206,6 +206,7 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 | （行番号） | 今の行からの距離で出す。今の行だけ本来の番号（下） | `obsidian/plugins/dotfiles-vim` |
 | （ヤンク） | ヤンクした所を一瞬光らせる（下） | `obsidian/plugins/dotfiles-vim` |
 | （INSERT 以外） | IME を OFF にする（下） | `obsidian/plugins/dotfiles-vim` |
+| （保存） | ノートを別のノートの中身で丸ごと上書きする保存を止める（下） | `obsidian/plugins/dotfiles-vim` |
 
 8c がすること（何度流してもよい）:
 
@@ -261,6 +262,8 @@ Obsidian のキーは LazyVim に揃える（`install.ps1` の 8c・`tools/Insta
 行番号は、Neovim（LazyVim の `number` + `relativenumber`）と同じく、今の行からの距離で出す。今の行だけ本来の番号にする（`5j` の 5 がそのまま読める）。行番号の欄は Obsidian のもの（設定 → エディタ → 行番号を表示）をそのまま使い、数字の書き方だけを変えるので、行番号を切っていれば何も出ない。Obsidian の行番号はノートの行で数えるので、折りたたんだ所や、表のように何行もまとめて描くブロックの所では、`j` で動く数と合わないことがある。
 
 ヤンクした所は、Neovim（LazyVim の `vim.hl.on_yank()`）と同じく 150ms だけ光らせる。色も Neovim の `IncSearch`（`nvim/lua/plugins/colorscheme.lua`。roninYellow `#ff9e3b` の地に sumiInk0 の文字）と同じで、明るいテーマでも同じ色。Neovim は太字だが、Obsidian は文字の幅が変わって行の折り返しが動くので太字にしない。光るのは `y` の演算子すべて（`yiw`・`yy`・`Y` など）とビジュアルモードの `y`（`Ctrl+v` のブロックも）。`"_y`（Neovim も同じ）・`d`・`c`・`:yank` では光らない。ライブプレビューで絵に置き換わる所（箇条書きの点・チェックボックスなど）は塗られない。
+
+ノートを別のノートの中身で丸ごと上書きする保存は止める（Neovim には無い守り）。2026-11 に、開いているノートが別のノートの古い版の中身に入れ替わって保存される事故が何度か起きた（同じファイルを開いている別のタブから、Obsidian がタブの間で配る中身として届いていた。きっかけは未確定）。止めるのは、前の行の半分を超えて入れ替わり、新しい中身が別のノートの今の中身か、ファイルの復元（File recovery）に残る別のノートの版と空白を除いて同じ時だけ。作って 10 分のうちのノートは見ない。止めたら書かずに、そのファイルを開いているタブをディスクの中身に戻して知らせる（戻す前の中身は `u` で出る）。わざとなら、コマンド「Allow the next overwrite with another note's text」の後に保存し直す（1 分のうちの 1 回だけ通す）。止めた時と、どれとも一致しないが丸ごと入れ替わった時は、直前のキー・タブの切り替え・配られた中身の大きさを `%LOCALAPPDATA%\dotfiles-vim\overwrite.jsonl` に残す（打った文字とノートの文は残さない）。
 
 Obsidian の Vim モードでも、Neovim と同じく INSERT 以外では IME を必ず OFF にする。Esc で戻った直後に IME が ON のままだと、`h/j/k/l` が IME に食われてノーマルモードのキーが通らないため。
 

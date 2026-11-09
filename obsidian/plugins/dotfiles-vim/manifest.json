@@ -1,9 +1,9 @@
 {
   "id": "dotfiles-vim",
   "name": "Vim like Neovim (dotfiles)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Makes Vim mode work like Neovim with dotfiles-windows: shows the mode in the status bar like lualine, highlights the cursor line in the active pane, numbers lines relative to the cursor, flashes the yanked text, turns the IME off outside Insert mode, and Ctrl+O / Ctrl+I go back / forward in Normal mode. The IME part needs ime.exe next to it, which dotfiles-windows' install.ps1 puts there.",
+  "description": "Makes Vim mode work like Neovim with dotfiles-windows: shows the mode in the status bar like lualine, highlights the cursor line in the active pane, numbers lines relative to the cursor, flashes the yanked text, turns the IME off outside Insert mode, and Ctrl+O / Ctrl+I go back / forward in Normal mode. It also refuses to save a note over with another note's text (the current text or a File recovery version of a different note), which happened in 2026-11. The IME part needs ime.exe next to it, which dotfiles-windows' install.ps1 puts there.",
   "author": "dotfiles-windows",
   "isDesktopOnly": true
 }
