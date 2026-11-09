@@ -405,24 +405,23 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
     }
 }
 
-# 8. Per-PC values: write ~/.dotfiles.json from the template when it is missing.
-#    Everything that differs between machines (the Obsidian vault path, display
-#    tweaks) lives there, so this repo stays machine-independent and can be cloned
-#    anywhere. nvim, WezTerm and the PowerShell profile all read that one file.
-$cfgPath = Join-Path $HOME '.dotfiles.json'
-if (Test-Path $cfgPath) {
-    Write-Host "ok       $cfgPath"
-} else {
-    $template = Get-Content (Join-Path $repo 'dotfiles.example.json') -Raw
-    # Fill in the vault. Ask Obsidian first: %APPDATA%\obsidian\obsidian.json lists every
-    # vault this PC has opened, wherever it lives (the one open now wins, then the most
-    # recently opened). Fall back to the usual places in the home directory when Obsidian
-    # has not run here yet. A candidate counts only if it really has a .obsidian folder.
+# 8. Per-PC values: write ~/.dotfiles.json from the template when it is missing, and fill in
+#    its "vault" whenever that is empty. Everything that differs between machines (the
+#    Obsidian vault path, display tweaks) lives there, so this repo stays machine-independent
+#    and can be cloned anywhere. nvim, WezTerm and the PowerShell profile all read that one file.
+#    A file made before Obsidian had opened the vault on this PC has an empty "vault", which
+#    used to stay empty for good because an existing file was never looked at again.
+#    A "vault" that is already set is kept as it is (it may have been set by hand).
+function Find-ObsidianVault {
+    # Ask Obsidian first: %APPDATA%\obsidian\obsidian.json lists every vault this PC has
+    # opened, wherever it lives (the one open now wins, then the most recently opened). Fall
+    # back to the usual places in the home directory when Obsidian has not run here yet.
+    # A candidate counts only if it really has a .obsidian folder.
     $candidates = @()
     $obsidianJson = Join-Path $env:APPDATA 'obsidian\obsidian.json'
-    if (Test-Path $obsidianJson) {
+    if (Test-Path -LiteralPath $obsidianJson) {
         try {
-            $known = (Get-Content $obsidianJson -Raw -Encoding UTF8 | ConvertFrom-Json).vaults
+            $known = (Get-Content -LiteralPath $obsidianJson -Raw -Encoding UTF8 | ConvertFrom-Json).vaults
             if ($known) {
                 $candidates += $known.PSObject.Properties.Value |
                     Sort-Object @{ Expression = { [bool]$_.open }; Descending = $true },
@@ -434,16 +433,56 @@ if (Test-Path $cfgPath) {
         }
     }
     $candidates += @((Join-Path $HOME 'core'), (Join-Path $HOME 'vault'), (Join-Path $HOME 'Obsidian'))
-    $vault = ''
     foreach ($c in $candidates) {
-        if ($c -and (Test-Path (Join-Path $c '.obsidian'))) { $vault = ($c -replace '\\', '/'); break }
+        if ($c -and (Test-Path -LiteralPath (Join-Path $c '.obsidian'))) { return ($c -replace '\\', '/') }
     }
-    $out = $template -replace '"vault": "[^"]*"', ('"vault": "' + $vault + '"')
-    [IO.File]::WriteAllText($cfgPath, $out, (New-Object Text.UTF8Encoding($false)))
-    if ($vault) {
-        Write-Host "created  $cfgPath (vault = $vault)"
+    return ''
+}
+
+$cfgPath = Join-Path $HOME '.dotfiles.json'
+$cfgText = $null
+$vaultSet = ''
+if (Test-Path -LiteralPath $cfgPath) {
+    $cfgText = [IO.File]::ReadAllText($cfgPath)
+    try {
+        $vaultSet = [string](ConvertFrom-Json $cfgText).vault
+    } catch {
+        $vaultSet = $null
+        Write-Warning "cannot read ${cfgPath}: $($_.Exception.Message). Left as it is."
+    }
+}
+if ($null -eq $vaultSet) {
+    # broken JSON: warned above
+} elseif ($vaultSet) {
+    if (Test-Path -LiteralPath (Join-Path $vaultSet '.obsidian')) {
+        Write-Host "ok       $cfgPath (vault = $vaultSet)"
     } else {
-        Write-Warning "$cfgPath created. Set 'vault' to this PC's Obsidian vault path (forward slashes)."
+        Write-Warning "'vault' in $cfgPath is $vaultSet, which has no .obsidian folder. Fix it by hand (forward slashes)."
+    }
+} else {
+    $vault = Find-ObsidianVault
+    $entry = '"vault": "' + $vault + '"'
+    $entryRe = $entry.Replace('$', '$$')
+    $vaultRe = '"vault"\s*:\s*("[^"]*"|null)'
+    if ($null -eq $cfgText) {
+        $template = Get-Content (Join-Path $repo 'dotfiles.example.json') -Raw
+        $out = $template -replace $vaultRe, $entryRe
+        $done = "created  $cfgPath"
+    } elseif ($cfgText -match $vaultRe) {
+        $out = $cfgText -replace $vaultRe, $entryRe
+        $done = "set      vault in $cfgPath"
+    } else {
+        $out = $cfgText -replace '^(\s*\{)', ('$1' + "`n  " + $entryRe + ',')
+        $done = "set      vault in $cfgPath"
+    }
+    if ($vault) {
+        [IO.File]::WriteAllText($cfgPath, $out, (New-Object Text.UTF8Encoding($false)))
+        Write-Host "$done (vault = $vault)"
+    } elseif ($null -eq $cfgText) {
+        [IO.File]::WriteAllText($cfgPath, $out, (New-Object Text.UTF8Encoding($false)))
+        Write-Warning "$cfgPath created without a vault. Open the vault in Obsidian once and run this again, or set 'vault' by hand (forward slashes)."
+    } else {
+        Write-Warning "'vault' in $cfgPath is empty and no vault was found. Open the vault in Obsidian once and run this again, or set it by hand (forward slashes)."
     }
 }
 

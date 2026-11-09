@@ -28,7 +28,7 @@ powershell -ExecutionPolicy Bypass -File .\dotfiles-windows\install.ps1
 | 7 | `tools/bin/ime.exe` をビルドする（Obsidian 用。8c がプラグインの隣に写す） |
 | 7b | `tools/bin/cp932-to-utf8.exe` をビルドし、`%LOCALAPPDATA%\lazygit\config.yml` に差分の表示フィルタとして書く（下の「文字コード」。自分で書いた `config.yml` があれば触らず、足す内容を警告で出す。clone 先を移したら流し直す） |
 | 7c | `tools/bin/utf8-mirror.exe` をビルドする（CP932 のソースを clangd に UTF-8 で見せる＝下の「CP932 のソースと clangd」。有効にするのは Neovim） |
-| 8 | `~/.dotfiles.json` を、無ければ作る（下の「PC ごとの設定」） |
+| 8 | `~/.dotfiles.json` を、無ければ作る。`vault` が空なら Obsidian の vault で埋める（下の「PC ごとの設定」） |
 | 8b | `obsidian/snippets/*.css`（note/ のチェックボックスの状態の見た目）を vault の `.obsidian/snippets` に写し、Obsidian が開いていれば有効にする（下の「Obsidian」） |
 | 8c | Obsidian のキーを LazyVim に揃える（Vim モード・`Ctrl+h/j/k/l` で分割・`Shift+h/l` でタブ・`Ctrl+o/i` で戻る・進む・モードの表示・今の行の色・相対の行番号・ヤンクした所を光らせる・INSERT 以外で IME を OFF）。ホットキーを vault に混ぜ、vimrc を写し、Vim モードを on にし、Obsidian が開いていればプラグイン Vimrc Support を入れ、このリポのプラグイン dotfiles-vim を `ime.exe` と一緒に写して有効にする（下の「Obsidian」。Vimrc Support の取得は `-SkipPackages` で飛ばせる） |
 | 9 | AI エージェント（Claude Code・GitHub Copilot CLI）が入っている PC で、スキルを見せ、エディタと同じ言語サーバを使えるようにする。vault がある PC では、どのリポから起動しても vault を読めるようにし、note/ を守るフックをつなぐ（下の「AI エージェント」。プラグインと rust-analyzer の取得は `-SkipPackages` で飛ばせる） |
@@ -64,15 +64,17 @@ PC ごとに変わる値はホームの `~/.dotfiles.json` 1 枚に集める。�
 このファイルは他の PC からコピーしない（中身がその PC のパスなので）。`install.ps1` が PC ごとに作る。
 
 1. その PC の Obsidian で vault を一度開く（置き場所はどこでもよい）
-2. `install.ps1` を流す。`created ~/.dotfiles.json (vault = ...)` と出れば完了
+2. `install.ps1` を流す。`created ~/.dotfiles.json (vault = ...)` か `set vault in ~/.dotfiles.json (vault = ...)` と出れば完了
 3. nvim と PowerShell を開き直す
 
 `vault` は Obsidian が覚えている vault から選ぶ（今開いているもの → 最後に開いたもの）。Obsidian を起動したことのない PC では `~/core`・`~/vault`・`~/Obsidian` を見る。
 
+すでに `~/.dotfiles.json` があっても、`vault` が空（か `null`・キーが無い）なら、流すたびに上の順で探して `vault` の 1 行だけを書く（他のキーは触らない）。vault を開く前に `install.ps1` を流して空で作られた PC でも、開いてから流し直せば入る。`vault` が入っていれば書き換えない。
+
 手で書くのは次の場合だけ。`"vault"` の 1 行を `/` 区切りのパスに直す。
 
-- 検出できなかった（空で作られる）・違う vault が入った
-- その PC にすでに `~/.dotfiles.json` がある（`install.ps1` は既存のファイルを触らない）
+- 検出できなかった（空のまま警告が出る）・違う vault が入った
+- 入っている `vault` に `.obsidian` が無い（警告が出る。移した・消した vault）
 
 ## 使い方
 
